@@ -29,41 +29,39 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionServiceTest {
 
     @Mock private TransactionRepository transactionRepository;
-    @Mock private UserRepository userRepository;
+    @Mock private UserRepository        userRepository;
+    /**
+     * FIX: TransactionService now depends on DashboardService to call
+     * evictDashboardCaches() after every write. Without this mock,
+     * @InjectMocks leaves dashboardService null → NullPointerException
+     * on createTransaction / updateTransaction / deleteTransaction.
+     */
+    @Mock private DashboardService dashboardService;
 
     @InjectMocks private TransactionService transactionService;
 
-    private User adminUser;
+    private User        adminUser;
     private Transaction sampleTransaction;
 
     @BeforeEach
     void setUp() {
         adminUser = User.builder()
-                .id(1L)
-                .username("admin")
-                .email("admin@example.com")
-                .password("hashed")
-                .role(Role.ADMIN)
-                .status(UserStatus.ACTIVE)
+                .id(1L).username("admin").email("admin@example.com")
+                .password("hashed").role(Role.ADMIN).status(UserStatus.ACTIVE)
                 .build();
 
         sampleTransaction = Transaction.builder()
-                .id(10L)
-                .amount(new BigDecimal("500.00"))
-                .type(TransactionType.INCOME)
-                .category("Salary")
-                .date(LocalDate.of(2025, 1, 15))
-                .notes("January salary")
-                .createdBy(adminUser)
-                .deleted(false)
-                .build();
+                .id(10L).amount(new BigDecimal("500.00"))
+                .type(TransactionType.INCOME).category("Salary")
+                .date(LocalDate.of(2025, 1, 15)).notes("January salary")
+                .createdBy(adminUser).deleted(false).build();
     }
 
     // ── getTransactions ───────────────────────────────────────────────────────
@@ -91,11 +89,11 @@ class TransactionServiceTest {
         when(transactionRepository.findByIdAndDeletedFalse(10L))
                 .thenReturn(Optional.of(sampleTransaction));
 
-        TransactionResponse response = transactionService.getTransactionById(10L);
+        TransactionResponse resp = transactionService.getTransactionById(10L);
 
-        assertThat(response.getId()).isEqualTo(10L);
-        assertThat(response.getCategory()).isEqualTo("Salary");
-        assertThat(response.getType()).isEqualTo(TransactionType.INCOME);
+        assertThat(resp.getId()).isEqualTo(10L);
+        assertThat(resp.getCategory()).isEqualTo("Salary");
+        assertThat(resp.getType()).isEqualTo(TransactionType.INCOME);
     }
 
     @Test
@@ -112,62 +110,61 @@ class TransactionServiceTest {
     // ── createTransaction ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("createTransaction: persists and returns new transaction")
+    @DisplayName("createTransaction: saves record and evicts dashboard cache")
     void createTransaction_success() {
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setAmount(new BigDecimal("250.00"));
-        request.setType(TransactionType.EXPENSE);
-        request.setCategory("Utilities");
-        request.setDate(LocalDate.of(2025, 2, 1));
-        request.setNotes("Electric bill");
+        CreateTransactionRequest req = new CreateTransactionRequest();
+        req.setAmount(new BigDecimal("250.00"));
+        req.setType(TransactionType.EXPENSE);
+        req.setCategory("Utilities");
+        req.setDate(LocalDate.of(2025, 2, 1));
+        req.setNotes("Electric bill");
 
         Transaction saved = Transaction.builder()
-                .id(11L)
-                .amount(request.getAmount())
-                .type(request.getType())
-                .category(request.getCategory())
-                .date(request.getDate())
-                .notes(request.getNotes())
-                .createdBy(adminUser)
-                .deleted(false)
-                .build();
+                .id(11L).amount(req.getAmount()).type(req.getType())
+                .category(req.getCategory()).date(req.getDate())
+                .notes(req.getNotes()).createdBy(adminUser).deleted(false).build();
 
         when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
         when(transactionRepository.save(any(Transaction.class))).thenReturn(saved);
 
-        TransactionResponse response = transactionService.createTransaction(request, "admin");
+        TransactionResponse resp = transactionService.createTransaction(req, "admin");
 
-        assertThat(response.getId()).isEqualTo(11L);
-        assertThat(response.getCategory()).isEqualTo("Utilities");
-        assertThat(response.getType()).isEqualTo(TransactionType.EXPENSE);
+        assertThat(resp.getId()).isEqualTo(11L);
+        assertThat(resp.getCategory()).isEqualTo("Utilities");
+        assertThat(resp.getType()).isEqualTo(TransactionType.EXPENSE);
+
         verify(transactionRepository, times(1)).save(any(Transaction.class));
+        // Dashboard cache must be evicted after every write
+        verify(dashboardService, times(1)).evictDashboardCaches();
     }
 
     // ── updateTransaction ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("updateTransaction: applies only supplied fields")
+    @DisplayName("updateTransaction: applies only supplied fields and evicts cache")
     void updateTransaction_partialUpdate() {
-        UpdateTransactionRequest request = new UpdateTransactionRequest();
-        request.setCategory("Freelance");   // only update category
+        UpdateTransactionRequest req = new UpdateTransactionRequest();
+        req.setCategory("Freelance");   // only update category
 
         when(transactionRepository.findByIdAndDeletedFalse(10L))
                 .thenReturn(Optional.of(sampleTransaction));
         when(transactionRepository.save(any(Transaction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        TransactionResponse response = transactionService.updateTransaction(10L, request);
+        TransactionResponse resp = transactionService.updateTransaction(10L, req);
 
-        assertThat(response.getCategory()).isEqualTo("Freelance");
-        // Amount and type should remain unchanged
-        assertThat(response.getAmount()).isEqualByComparingTo("500.00");
-        assertThat(response.getType()).isEqualTo(TransactionType.INCOME);
+        assertThat(resp.getCategory()).isEqualTo("Freelance");
+        // Amount and type must remain unchanged
+        assertThat(resp.getAmount()).isEqualByComparingTo("500.00");
+        assertThat(resp.getType()).isEqualTo(TransactionType.INCOME);
+
+        verify(dashboardService, times(1)).evictDashboardCaches();
     }
 
     // ── deleteTransaction ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("deleteTransaction: sets deleted=true without removing the row")
+    @DisplayName("deleteTransaction: sets deleted=true without removing row, evicts cache")
     void deleteTransaction_softDelete() {
         when(transactionRepository.findByIdAndDeletedFalse(10L))
                 .thenReturn(Optional.of(sampleTransaction));
@@ -178,6 +175,7 @@ class TransactionServiceTest {
 
         assertThat(sampleTransaction.isDeleted()).isTrue();
         verify(transactionRepository, times(1)).save(sampleTransaction);
+        verify(dashboardService, times(1)).evictDashboardCaches();
     }
 
     @Test
@@ -188,6 +186,8 @@ class TransactionServiceTest {
 
         assertThatThrownBy(() -> transactionService.deleteTransaction(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
+
         verify(transactionRepository, never()).save(any());
+        verify(dashboardService, never()).evictDashboardCaches();
     }
 }

@@ -36,18 +36,41 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> {})
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+
+                        // ── Public ────────────────────────────────────────────
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        // ── Users (Admin only) ────────────────────────────────
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/transactions/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/transactions/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/transactions/**").hasRole("ADMIN")
+
+                        // ── Transactions ──────────────────────────────────────
+                        .requestMatchers(HttpMethod.GET,    "/api/transactions/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,   "/api/transactions/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,    "/api/transactions/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/transactions/**").hasRole("ADMIN")
+
+                        // ── Dashboard ─────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/summary").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/trends").hasAnyRole("ANALYST", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/categories").hasAnyRole("ANALYST", "ADMIN")
+
+                        // ── Cache management (Admin only) ────────────────────
+                        .requestMatchers("/api/cache/**").hasRole("ADMIN")
+
+                        // ── Payments ──────────────────────────────────────────
+                        // create-order and verify: any authenticated user
+                        .requestMatchers(HttpMethod.POST, "/api/payments/create-order").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/verify").authenticated()
+                        // my history: any authenticated user
+                        .requestMatchers(HttpMethod.GET, "/api/payments/my").authenticated()
+                        // single payment lookup: any authenticated user
+                        .requestMatchers(HttpMethod.GET, "/api/payments/{id}").authenticated()
+                        // all payments + revenue: admin only (also enforced via @PreAuthorize)
+                        .requestMatchers(HttpMethod.GET, "/api/payments").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/revenue").hasRole("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())

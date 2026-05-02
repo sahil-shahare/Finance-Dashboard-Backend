@@ -1,5 +1,6 @@
 package com.finance.dashboard.service;
 
+import com.finance.dashboard.config.CacheConstants;
 import com.finance.dashboard.dto.response.DashboardSummaryResponse;
 import com.finance.dashboard.dto.response.DashboardSummaryResponse.CategoryTotalResponse;
 import com.finance.dashboard.dto.response.MonthlyTrendResponse;
@@ -7,6 +8,8 @@ import com.finance.dashboard.dto.response.MonthlyTrendResponse.MonthlyEntry;
 import com.finance.dashboard.dto.response.TransactionResponse;
 import com.finance.dashboard.model.enums.TransactionType;
 import com.finance.dashboard.repository.TransactionRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +34,17 @@ public class DashboardService {
         this.transactionRepository = transactionRepository;
     }
 
+    // ── Cached read methods ──────────────────────────────────────────────────
+
+    /**
+     * Cached with key "global" — there is only one system-wide summary.
+     * Evicted by evictDashboardCaches() whenever a transaction is written.
+     *
+     * Without caching, this fires 3 DB queries + a recent-transactions query
+     * on every dashboard load. With Redis, the full object is served from
+     * memory in < 1ms after the first request.
+     */
+    @Cacheable(value = CacheConstants.DASHBOARD_SUMMARY, key = "'global'")
     public DashboardSummaryResponse getSummary() {
         BigDecimal totalIncome   = transactionRepository.sumByType(TransactionType.INCOME);
         BigDecimal totalExpenses = transactionRepository.sumByType(TransactionType.EXPENSE);
@@ -52,6 +66,13 @@ public class DashboardService {
                 .build();
     }
 
+    /**
+     * Cached with key "global" for the same reason as getSummary().
+     * Computing 12 months of JPQL aggregation on every trend chart request
+     * would be wasteful; Redis serves the result until a transaction write
+     * invalidates it.
+     */
+    @Cacheable(value = CacheConstants.DASHBOARD_TRENDS, key = "'global'")
     public MonthlyTrendResponse getMonthlyTrends() {
         LocalDate since = LocalDate.now().minusMonths(TREND_MONTHS).withDayOfMonth(1);
         List<Object[]> rows = transactionRepository.monthlyTrends(since);
@@ -67,7 +88,8 @@ public class DashboardService {
             map.computeIfAbsent(key, k -> MonthlyEntry.builder()
                     .year(year)
                     .month(month)
-                    .monthLabel(Month.of(month).getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " " + year)
+                    .monthLabel(Month.of(month).getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+                            + " " + year)
                     .income(BigDecimal.ZERO)
                     .expenses(BigDecimal.ZERO)
                     .net(BigDecimal.ZERO)
@@ -87,9 +109,31 @@ public class DashboardService {
                 .build();
     }
 
+    @Cacheable(value = CacheConstants.CATEGORY_TOTALS, key = "'global'")
     public List<CategoryTotalResponse> getCategoryTotals() {
         return buildCategoryTotals();
     }
+
+    // ── Cache eviction ───────────────────────────────────────────────────────
+
+    /**
+     * Called by TransactionService after every write (create / update / delete).
+     * Clears all three dashboard caches so the next read recomputes fresh data.
+     *
+     * allEntries = true removes every key in the cache, not just "global",
+     * which future-proofs against per-user dashboards being added later.
+     */
+    @CacheEvict(value = {
+            CacheConstants.DASHBOARD_SUMMARY,
+            CacheConstants.DASHBOARD_TRENDS,
+            CacheConstants.CATEGORY_TOTALS
+    }, allEntries = true)
+    public void evictDashboardCaches() {
+        // Spring AOP handles the eviction — no method body needed.
+        // The method exists solely to be called from TransactionService.
+    }
+
+    // ── Private helper ────────────────────────────────────────────────────────
 
     private List<CategoryTotalResponse> buildCategoryTotals() {
         return transactionRepository.sumByCategory()

@@ -62,6 +62,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
+    // ── Payment-specific ─────────────────────────────────────────────────────
+
+    @ExceptionHandler(PaymentException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePaymentException(PaymentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    // ── Catch-all ─────────────────────────────────────────────────────────────
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
         log.error("Unexpected error", ex);

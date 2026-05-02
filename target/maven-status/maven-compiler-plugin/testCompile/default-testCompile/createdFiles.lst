@@ -1,3 +1,5 @@
+com\finance\dashboard\service\PaymentServiceTest.class
+com\finance\dashboard\service\AuthServiceTest.class
+com\finance\dashboard\service\RazorpayServiceTest.class
 com\finance\dashboard\service\TransactionServiceTest.class
 com\finance\dashboard\service\DashboardServiceTest.class
-com\finance\dashboard\service\AuthServiceTest.class
