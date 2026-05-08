@@ -3,22 +3,33 @@ package com.finance.dashboard.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
 /**
- * Enables CORS so the standalone HTML frontend (opened from the filesystem
- * or served from a different port) can call the Spring Boot API.
+ * CORS configuration for the standalone HTML/JS frontend.
  *
- * In production, replace "*" with your actual frontend domain.
+ * Why CorsConfigurationSource (not CorsFilter):
+ *
+ * In Spring Boot 3 / Spring Security 6, a bare CorsFilter @Bean gets
+ * auto-registered at the default servlet-filter order (0), which is
+ * AFTER the Spring Security filter chain (order -100).  That means
+ * Spring Security intercepts OPTIONS preflight requests and returns
+ * 401/403 before the CorsFilter ever runs, so the browser never gets
+ * CORS headers and blocks every request.
+ *
+ * Declaring a CorsConfigurationSource @Bean instead lets Spring
+ * Security's own CORS support (enabled via .cors() in SecurityConfig)
+ * handle preflight correctly — inside the security chain, before any
+ * authentication checks.
  */
 @Configuration
 public class CorsConfig {
 
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
         // Allow requests from the frontend — file://, localhost, any port
@@ -30,8 +41,10 @@ public class CorsConfig {
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
+        // Register on /** so Spring Security's CORS filter matches every path,
+        // including /api/auth/login which must work before a token exists.
+        source.registerCorsConfiguration("/**", config);
 
-        return new CorsFilter(source);
+        return source;
     }
 }

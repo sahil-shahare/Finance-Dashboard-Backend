@@ -4,8 +4,13 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -21,27 +26,27 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Configures Spring's caching layer to use Redis as the backing store.
+ * Redis configuration with graceful fallback.
  *
- * Key decisions:
- *  - Values are serialised as JSON (not Java serialisation) so they are
- *    human-readable in Redis CLI and survive class refactors without cache
- *    poisoning.
- *  - Each cache has its own TTL — dashboard aggregations expire faster than
- *    user profiles, which change rarely.
- *  - A default TTL of 5 minutes applies to any cache not explicitly listed.
+ * Implements CachingConfigurer so errorHandler() is properly registered
+ * by Spring — a standalone @Bean CacheErrorHandler is NOT picked up.
+ *
+ * When Redis is unavailable:
+ *   - @Cacheable  → method executes normally, result not cached (DB hit every time)
+ *   - @CachePut   → method executes normally, result not cached
+ *   - @CacheEvict → eviction silently skipped, stale data may remain until TTL expires
+ *   - CacheController direct calls → 200 OK with warning message, no crash
+ *
+ * The app stays fully functional with just MySQL — Redis is an optional performance layer.
  */
 @Configuration
 @EnableCaching
-public class RedisConfig {
+public class RedisConfig implements CachingConfigurer {
 
-    // ── RedisTemplate ────────────────────────────────────────────────────────
+    private static final Logger log = LoggerFactory.getLogger(RedisConfig.class);
 
-    /**
-     * General-purpose template for manual Redis operations (get/set/delete).
-     * Keys   → plain UTF-8 strings
-     * Values → JSON via Jackson (handles LocalDate, BigDecimal, etc.)
-     */
+    // ── RedisTemplate ─────────────────────────────────────────────────────────
+
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -54,50 +59,26 @@ public class RedisConfig {
         return template;
     }
 
-    // ── CacheManager ─────────────────────────────────────────────────────────
+    // ── CacheManager ──────────────────────────────────────────────────────────
 
-    /**
-     * Wires Spring's @Cacheable / @CacheEvict / @CachePut annotations to Redis.
-     * Each cache gets a dedicated TTL; everything else falls back to the default.
-     */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory factory) {
-
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration
                 .defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(5))             // default TTL
-                .serializeKeysWith(
-                        RedisSerializationContext.SerializationPair
-                                .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair
-                                .fromSerializer(jsonSerializer()))
-                .disableCachingNullValues();                 // never cache null
+                .entryTtl(Duration.ofMinutes(5))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(jsonSerializer()))
+                .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> perCacheConfig = new HashMap<>();
-
-        // Dashboard aggregations — evicted on every transaction write, so TTL
-        // is mostly a safety net. 10 min keeps data fresh if eviction is missed.
-        perCacheConfig.put(CacheConstants.DASHBOARD_SUMMARY,
-                defaultConfig.entryTtl(Duration.ofMinutes(10)));
-
-        perCacheConfig.put(CacheConstants.DASHBOARD_TRENDS,
-                defaultConfig.entryTtl(Duration.ofMinutes(10)));
-
-        perCacheConfig.put(CacheConstants.CATEGORY_TOTALS,
-                defaultConfig.entryTtl(Duration.ofMinutes(10)));
-
-        // Individual records — short TTL; evicted explicitly on update/delete
-        perCacheConfig.put(CacheConstants.TRANSACTION_BY_ID,
-                defaultConfig.entryTtl(Duration.ofMinutes(5)));
-
-        // Users change rarely — longer TTL is safe
-        perCacheConfig.put(CacheConstants.USER_BY_ID,
-                defaultConfig.entryTtl(Duration.ofMinutes(30)));
-
-        // Payments are mostly immutable after SUCCESS
-        perCacheConfig.put(CacheConstants.PAYMENT_BY_ID,
-                defaultConfig.entryTtl(Duration.ofMinutes(15)));
+        perCacheConfig.put(CacheConstants.DASHBOARD_SUMMARY,  defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfig.put(CacheConstants.DASHBOARD_TRENDS,   defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfig.put(CacheConstants.CATEGORY_TOTALS,    defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        perCacheConfig.put(CacheConstants.TRANSACTION_BY_ID,  defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        perCacheConfig.put(CacheConstants.USER_BY_ID,         defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        perCacheConfig.put(CacheConstants.PAYMENT_BY_ID,      defaultConfig.entryTtl(Duration.ofMinutes(15)));
 
         return RedisCacheManager.builder(factory)
                 .cacheDefaults(defaultConfig)
@@ -105,20 +86,60 @@ public class RedisConfig {
                 .build();
     }
 
-    // ── Serialiser ────────────────────────────────────────────────────────────
+    // ── CacheErrorHandler — registered via CachingConfigurer ─────────────────
+    //
+    // This is the CORRECT way to register a custom error handler.
+    // A standalone @Bean CacheErrorHandler method is IGNORED by Spring.
 
-    /**
-     * Jackson-based JSON serialiser that includes type metadata (@class field).
-     * The type metadata is required so Jackson can deserialise back to the
-     * correct concrete class without an explicit type hint at the call site.
-     */
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CacheErrorHandler() {
+
+            @Override
+            public void handleCacheGetError(RuntimeException e, Cache cache, Object key) {
+                log.warn("[Cache] GET failed — cache='{}' key='{}' — serving from DB. Cause: {}",
+                        cache.getName(), key, rootCause(e));
+                // Swallow: Spring will call the actual @Cacheable method instead
+            }
+
+            @Override
+            public void handleCachePutError(RuntimeException e, Cache cache, Object key, Object value) {
+                log.warn("[Cache] PUT failed — cache='{}' key='{}' — result not cached. Cause: {}",
+                        cache.getName(), key, rootCause(e));
+                // Swallow: response still returned to client, just not cached
+            }
+
+            @Override
+            public void handleCacheEvictError(RuntimeException e, Cache cache, Object key) {
+                log.warn("[Cache] EVICT failed — cache='{}' key='{}' — stale data may persist until TTL. Cause: {}",
+                        cache.getName(), key, rootCause(e));
+                // Swallow: eviction failure is non-fatal
+            }
+
+            @Override
+            public void handleCacheClearError(RuntimeException e, Cache cache) {
+                log.warn("[Cache] CLEAR failed — cache='{}' — Cause: {}",
+                        cache.getName(), rootCause(e));
+                // Swallow
+            }
+
+            private String rootCause(RuntimeException e) {
+                Throwable cause = e;
+                while (cause.getCause() != null) cause = cause.getCause();
+                return cause.getClass().getSimpleName() + ": " + cause.getMessage();
+            }
+        };
+    }
+
+    // ── Jackson serialiser ────────────────────────────────────────────────────
+
     private GenericJackson2JsonRedisSerializer jsonSerializer() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());         // LocalDate, LocalDateTime
+        mapper.registerModule(new JavaTimeModule());
         mapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
                 ObjectMapper.DefaultTyping.NON_FINAL,
-                JsonTypeInfo.As.PROPERTY                    // stored as "@class" field in JSON
+                JsonTypeInfo.As.PROPERTY
         );
         return new GenericJackson2JsonRedisSerializer(mapper);
     }
