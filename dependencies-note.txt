@@ -1,0 +1,8 @@
+# No new dependency needed!
+# RestTemplate is part of spring-boot-starter-web which you already have.
+# Anthropic API is called via plain HTTP — zero new JARs required.
+
+# Only add this to application.properties:
+anthropic.api.key=YOUR_KEY_HERE
+
+# Get free API key at: https://console.anthropic.com

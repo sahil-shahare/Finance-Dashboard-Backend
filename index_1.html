@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceDash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#161b27;--bg3:#1c2333;--bg4:#232c40;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e8eaf0;--text2:#8892a4;--text3:#55627a;
+  --accent:#4f8ef7;--accent2:#3a6fd4;
+  --green:#34d399;--green2:#10543e;--green3:#0d3a2c;
+  --red:#f87171;--red2:#6b1a1a;--red3:#4a1111;
+  --amber:#fbbf24;--purple:#a78bfa;
+  --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+  --r:8px;--r2:12px;--sw:220px;--th:56px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:10px}
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sw);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:var(--th);flex-shrink:0;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:16px}
+.content{flex:1;overflow-y:auto;padding:24px}
+.sb-brand{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
+.sb-logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;border-radius:var(--r);background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-icon svg{width:18px;height:18px;color:#fff}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.logo-ver{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:1px}
+.sb-user{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.av{width:32px;height:32px;border-radius:50%;background:var(--accent2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;letter-spacing:.5px}
+.sb-uname{font-size:13px;font-weight:500}
+.sb-urole{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.sb-nav{padding:10px 0;flex:1;overflow-y:auto}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;font-size:13px;color:var(--text2);border-left:2px solid transparent;transition:background .15s,color .15s;user-select:none}
+.ni:hover{background:var(--bg3);color:var(--text)}
+.ni.active{background:rgba(79,142,247,.1);color:var(--accent);border-left-color:var(--accent);font-weight:500}
+.ni svg{width:16px;height:16px;flex-shrink:0;opacity:.8}
+.ni.active svg{opacity:1}
+.nb2{margin-left:auto;background:var(--bg4);color:var(--text3);font-size:10px;padding:1px 6px;border-radius:10px;font-family:var(--mono)}
+.sb-foot{padding:14px 18px;border-top:1px solid var(--border)}
+.ptitle{font-size:16px;font-weight:600;letter-spacing:-.3px}
+.tright{display:flex;align-items:center;gap:10px}
+.api-badge{font-family:var(--mono);font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text3);display:flex;align-items:center;gap:6px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.dot.off{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-family:var(--font);transition:background .15s;white-space:nowrap}
+.btn:hover{background:var(--bg4)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.bp{background:var(--accent);border-color:var(--accent);color:#fff}
+.bp:hover{background:var(--accent2);border-color:var(--accent2)}
+.bd{background:transparent;border-color:var(--red2);color:var(--red)}
+.bd:hover{background:var(--red3)}
+.bs{background:transparent;border-color:var(--green2);color:var(--green)}
+.bs:hover{background:var(--green3)}
+.bsm{padding:5px 10px;font-size:12px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+.ct{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:16px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px}
+.mi{width:32px;height:32px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.mi svg{width:16px;height:16px}
+.ml{font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:500;letter-spacing:.02em}
+.mv{font-size:22px;font-weight:600;letter-spacing:-.5px}
+.mv.green{color:var(--green)}.mv.red{color:var(--red)}.mv.blue{color:var(--accent)}.mv.amber{color:var(--amber)}
+.ms{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.s2{grid-column:span 2}
+.mb20{margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:background .1s}
+tbody tr:hover td{background:var(--bg3)}
+.tm{font-family:var(--mono);font-size:12px;color:var(--text3)}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;letter-spacing:.03em}
+.bi{background:#0d3a2c;color:var(--green);border:1px solid #0f6e56}
+.be{background:#3a1212;color:var(--red);border:1px solid #6b1a1a}
+.bs2{background:#0d3a2c;color:var(--green);border:1px solid #0f6e56}
+.bf{background:#3a1212;color:var(--red);border:1px solid #6b1a1a}
+.bc{background:#3d2a00;color:var(--amber);border:1px solid #78450a}
+.br{background:#1c1c40;color:var(--purple);border:1px solid #534ab7}
+.bad{background:#1c1c40;color:var(--purple);border:1px solid #534ab7}
+.ban{background:#0f1f3d;color:var(--accent);border:1px solid #1e4080}
+.bv{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.bact{background:#0d3a2c;color:var(--green);border:1px solid #0f6e56}
+.bin{background:#3a1212;color:var(--red);border:1px solid #6b1a1a}
+.ff{margin-bottom:16px}
+.fl{display:block;font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500}
+.fi{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px;transition:border-color .15s,box-shadow .15s}
+.fi:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.fi::placeholder{color:var(--text3)}
+.fi option{background:var(--bg3)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fh{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;backdrop-filter:blur(2px)}
+.md{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:24px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;animation:su .2s ease}
+@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.mt{font-size:16px;font-weight:600;letter-spacing:-.3px;margin-bottom:6px}
+.msub{font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:20px}
+.mf{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.lcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:36px 32px;width:400px;animation:su .3s ease}
+.lt{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.ls{font-size:13px;color:var(--text2);margin-top:4px}
+.rc{flex:1;padding:7px;border:1px solid var(--border2);border-radius:var(--r);background:transparent;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;text-align:center;font-family:var(--font);transition:all .15s}
+.rc:hover{background:var(--bg3);color:var(--text)}
+.rc.sel{background:rgba(79,142,247,.15);border-color:var(--accent);color:var(--accent)}
+.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{padding:7px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px}
+.filters select:focus,.filters input:focus{outline:none;border-color:var(--accent)}
+.fc{font-size:12px;color:var(--text3);margin-left:auto;font-family:var(--mono)}
+.pg{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.pbs{display:flex;gap:4px}
+.pb{padding:5px 10px;border:1px solid var(--border);border-radius:var(--r);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;font-family:var(--font);transition:all .15s}
+.pb:hover{background:var(--bg3);color:var(--text)}
+.pb.ap{background:var(--accent);border-color:var(--accent);color:#fff}
+.pi{font-size:12px;color:var(--text3);font-family:var(--mono)}
+#tc{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 18px;border-radius:var(--r);font-size:13px;font-weight:500;background:var(--bg4);border:1px solid var(--border2);color:var(--text);animation:ti .2s ease;display:flex;align-items:center;gap:10px;max-width:340px}
+.toast.ok{background:#0d3a2c;border-color:#0f6e56;color:var(--green)}
+.toast.err{background:#3a1212;border-color:#6b1a1a;color:var(--red)}
+.toast.inf{background:#0f1f3d;border-color:#1e4080;color:var(--accent)}
+@keyframes ti{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:13px}
+.spin{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lr{display:flex;align-items:center;justify-content:center;gap:12px;padding:40px;color:var(--text3);font-size:13px}
+.ap{color:var(--green);font-weight:500;font-family:var(--mono);font-size:13px}
+.an{color:var(--red);font-weight:500;font-family:var(--mono);font-size:13px}
+.cb{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6}
+.cb span{color:var(--accent)}
+.cc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px;transition:border-color .15s}
+.cc:hover{border-color:var(--border2)}
+.cn{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--accent)}
+.cd{font-size:12px;color:var(--text3);margin-top:3px}
+.tp{background:var(--bg3);color:var(--text3);font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:10px;white-space:nowrap}
+.hidden{display:none!important}
+.tw{overflow-x:auto}
+.req{color:var(--red);font-size:11px}
+.form-err{font-size:13px;padding:10px 14px;border-radius:var(--r);background:#3a1212;border:1px solid #6b1a1a;color:var(--red);margin-bottom:14px}
+.form-ok{font-size:13px;padding:10px 14px;border-radius:var(--r);background:#0d3a2c;border:1px solid #0f6e56;color:var(--green);margin-bottom:14px}
+.tabbar{display:flex;gap:4px;background:var(--bg3);border-radius:var(--r);padding:4px;margin-bottom:24px}
+.tabbtn{flex:1;padding:7px;border:none;border-radius:6px;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;color:var(--text2)}
+.tabbtn.active{background:var(--accent);color:#fff}
+@media(max-width:900px){.g2{grid-template-columns:1fr}.s2{grid-column:span 1}.fr{grid-template-columns:1fr}:root{--sw:180px}}
+@media(max-width:700px){.sidebar{display:none}.content{padding:16px}}
+
+.ai-tabs{display:flex;gap:4px;background:var(--bg3);border-radius:var(--r);padding:4px;margin-bottom:20px}
+.ai-tab{flex:1;padding:7px;border:none;border-radius:6px;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;color:var(--text2)}
+.ai-tab.act{background:linear-gradient(135deg,#4f8ef7,#a78bfa);color:#fff}
+.chat-wrap{display:flex;flex-direction:column;height:460px}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r2) var(--r2) 0 0}
+.chat-bar{display:flex;gap:8px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r2) var(--r2)}
+.chat-in{flex:1;padding:9px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px}
+.chat-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.msg{max-width:82%;padding:10px 14px;border-radius:var(--r2);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-radius:var(--r2) var(--r2) 4px var(--r2)}
+.msg.ai{background:var(--bg2);border:1px solid var(--border2);color:var(--text);align-self:flex-start;border-radius:var(--r2) var(--r2) var(--r2) 4px}
+.msg.typing{align-self:flex-start;background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.insight-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px;line-height:1.8;font-size:13px;color:var(--text2);white-space:pre-wrap}
+.ai-badge-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);border-radius:10px;font-size:11px;color:#a78bfa;font-family:var(--mono);margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<div id="tc"></div>
+
+<!-- LOGIN / SIGNUP -->
+<div id="ls" class="login-wrap">
+  <div class="lcard">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <div class="logo-icon" style="width:40px;height:40px;border-radius:10px">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:22px;height:22px;color:#fff"><path d="M3 10h14M10 3v14M6 6l8 8M14 6l-8 8"/></svg>
+      </div>
+      <div><div class="lt">FinanceDash</div><div class="ls">Spring Boot · MySQL · Redis · Razorpay</div></div>
+    </div>
+
+    <div class="tabbar">
+      <button id="tab-in" class="tabbtn active" onclick="switchTab('in')">Sign in</button>
+      <button id="tab-up" class="tabbtn" onclick="switchTab('up')">Sign up</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div id="form-in">
+      <div class="ff">
+        <label class="fl">Quick login</label>
+        <div style="display:flex;gap:8px">
+          <button class="rc sel" onclick="ql('admin','admin123',this)">Admin</button>
+          <button class="rc" onclick="ql('analyst','analyst123',this)">Analyst</button>
+          <button class="rc" onclick="ql('viewer','viewer123',this)">Viewer</button>
+        </div>
+      </div>
+      <div class="ff"><label class="fl">Username</label><input class="fi" id="lu" value="admin" placeholder="username"></div>
+      <div class="ff"><label class="fl">Password</label><input class="fi" id="lp" type="password" value="admin123" placeholder="password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div id="lerr" class="form-err hidden"></div>
+      <button class="btn bp" style="width:100%;padding:11px;font-size:14px;justify-content:center" id="login-btn" onclick="doLogin()">Sign in</button>
+    </div>
+
+    <!-- SIGN UP -->
+    <div id="form-up" class="hidden">
+      <div class="fr">
+        <div class="ff">
+          <label class="fl">Username <span class="req">*</span></label>
+          <input class="fi" id="su-user" placeholder="min 3 characters" oninput="clearSuErr()">
+          <div class="fh">3-50 chars: letters, numbers, _ . -</div>
+        </div>
+        <div class="ff">
+          <label class="fl">Email <span class="req">*</span></label>
+          <input class="fi" id="su-email" type="email" placeholder="you@example.com" oninput="clearSuErr()">
+        </div>
+      </div>
+      <div class="fr">
+        <div class="ff">
+          <label class="fl">Password <span class="req">*</span></label>
+          <input class="fi" id="su-pass" type="password" placeholder="min 6 characters" oninput="clearSuErr()">
+        </div>
+        <div class="ff">
+          <label class="fl">Confirm password <span class="req">*</span></label>
+          <input class="fi" id="su-pass2" type="password" placeholder="repeat password" onkeydown="if(event.key==='Enter')doSignup()">
+        </div>
+      </div>
+      <div class="ff">
+        <label class="fl">Role <span class="req">*</span></label>
+        <select class="fi" id="su-role">
+          <option value="VIEWER">VIEWER - Read-only access</option>
+          <option value="ANALYST">ANALYST - Read + Analytics</option>
+          <option value="ADMIN">ADMIN - Full access</option>
+        </select>
+      </div>
+      <div id="suerr" class="form-err hidden"></div>
+      <div id="suok" class="form-ok hidden"></div>
+      <button class="btn bp" id="su-btn" style="width:100%;padding:11px;font-size:14px;justify-content:center" onclick="doSignup()">Create account</button>
+    </div>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <label class="fl">API base URL</label>
+      <input class="fi" id="lurl" value="http://localhost:8080" placeholder="http://localhost:8080"
+        onblur="this.value=parseBase(this.value)"
+        oninput="var h=document.getElementById('lurl-hint');h.textContent=parseBase(this.value)+' · host:port only'">
+      <div class="fh" id="lurl-hint">http://localhost:8080 · host:port only, no /api/... path</div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="app hidden">
+  <div class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <div class="logo-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:18px;height:18px;color:#fff"><path d="M3 10h14M10 3v14M6 6l8 8M14 6l-8 8"/></svg></div>
+        <div><div class="logo-name">FinanceDash</div><div class="logo-ver">v1.0 · REST API</div></div>
+      </div>
+    </div>
+    <div class="sb-user">
+      <div class="av" id="sav">AD</div>
+      <div><div class="sb-uname" id="sun">admin</div><div class="sb-urole" id="sur">ADMIN</div></div>
+    </div>
+    <div class="sb-nav">
+      <div class="ni active" data-p="dashboard" onclick="nav('dashboard')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5" height="5" rx="1"/><rect x="9.5" y="1.5" width="5" height="5" rx="1"/><rect x="1.5" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg>Dashboard
+      </div>
+      <div class="ni" data-p="transactions" onclick="nav('transactions')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h7"/><circle cx="13" cy="12" r="2"/></svg>Transactions
+      </div>
+      <div class="ni ao" data-p="analytics" onclick="nav('analytics')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13L5 8l3 2 3-5 3 2"/><path d="M2 13h12"/></svg>Analytics
+      </div>
+      <div class="ni" data-p="payments" onclick="nav('payments')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="4" width="13" height="9" rx="1.5"/><path d="M1.5 7h13"/></svg>Payments
+      </div>
+      <div class="ni" data-p="ai" onclick="nav('ai')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M6 6.5c0-1.1.9-2 2-2s2 .9 2 2-.9 1.5-2 1.5v1"/><circle cx="8" cy="11.5" r=".5" fill="currentColor"/></svg>AI Assistant
+        <span class="nb2" style="background:rgba(167,139,250,.2);color:#a78bfa">NEW</span>
+      </div>
+      <div class="ni adm" data-p="users" onclick="nav('users')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="2.5"/><path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M11 3c1.3 0 2.5 1 2.5 2.5s-1.2 2-2.5 2"/><path d="M15 14c0-1.8-1-3-2.5-3.5"/></svg>Users
+        <span class="nb2" id="uc">-</span>
+      </div>
+      <div class="ni adm" data-p="cache" onclick="nav('cache')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="4" rx="6" ry="2.5"/><path d="M2 4v3.5c0 1.4 2.7 2.5 6 2.5S14 8.9 14 7.5V4"/><path d="M2 7.5V11c0 1.4 2.7 2.5 6 2.5S14 12.4 14 11V7.5"/></svg>Cache mgmt
+      </div>
+    </div>
+    <div class="sb-foot">
+      <button class="btn bsm" style="width:100%;justify-content:center" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <div class="ptitle" id="pt">Dashboard</div>
+      <div class="tright">
+        <div class="api-badge"><span class="dot" id="adot"></span><span id="aurl">localhost:8080</span></div>
+        <div id="tbtn"></div>
+      </div>
+    </div>
+    <div class="content" id="ct"><div class="lr"><div class="spin"></div>Loading...</div></div>
+  </div>
+</div>
+
+<div id="modal" class="mo hidden" onclick="if(event.target.id==='modal')closeMo()">
+  <div class="md" id="mdi"></div>
+</div>
+
+<script>
+var S={token:null,role:null,user:null,base:'http://localhost:8080',page:'dashboard',
+  txf:{type:'ALL',category:'',startDate:'',endDate:'',page:0,size:15},charts:{}};
+
+// ── URL parser — strips any accidental path from the base URL ─────────────────
+// e.g. "http://localhost:8080/api/auth/login" → "http://localhost:8080"
+// e.g. "localhost:8080"                        → "http://localhost:8080"
+// e.g. "http://localhost:8080/"                → "http://localhost:8080"
+function parseBase(raw){
+  var s=(raw||'').trim().replace(/\/+$/,'');
+  if(!s) return 'http://localhost:8080';
+  // add protocol if missing
+  if(!/^https?:\/\//.test(s)) s='http://'+s;
+  try{
+    var u=new URL(s);
+    return u.protocol+'//'+u.host; // protocol + hostname + port only
+  }catch(e){
+    // fallback: keep only up to first "/" after the host
+    return s.replace(/(https?:\/\/[^/]+)(\/.*)$/, '$1');
+  }
+}
+
+// ── persistence ────────────────────────────────────────────────────────────
+function saveSession(){
+  try{
+    sessionStorage.setItem('fd_session', JSON.stringify({token:S.token,role:S.role,user:S.user,base:S.base}));
+  }catch(e){}
+}
+function loadSession(){
+  try{
+    var raw = sessionStorage.getItem('fd_session');
+    if(!raw) return false;
+    var d = JSON.parse(raw);
+    if(!d.token) return false;
+    S.token=d.token;S.role=d.role;S.user=d.user;S.base=parseBase(d.base||S.base);
+    return true;
+  }catch(e){return false;}
+}
+function clearSession(){ try{ sessionStorage.removeItem('fd_session'); }catch(e){} }
+
+// ── API ─────────────────────────────────────────────────────────────────────
+async function api(method,path,body){
+  var opts={method,headers:{'Content-Type':'application/json'}};
+  if(S.token) opts.headers['Authorization']='Bearer '+S.token;
+  if(body) opts.body=JSON.stringify(body);
+  var res;
+  try{
+    res=await fetch(S.base+path,opts);
+  }catch(netErr){
+    throw new Error('Cannot reach '+S.base+' — is the backend running?\nCheck the API base URL below.');
+  }
+  var d;
+  try{ d=await res.json(); }catch(e){ d={success:false,message:'Invalid server response ('+res.status+')'}; }
+  if(res.status===401){
+    // token expired/invalid - force re-login
+    if(S.token){ S.token=null; clearSession(); showLogin(); toast('Session expired - please sign in again','err'); }
+    throw new Error(d.message||'Unauthorized');
+  }
+  if(!res.ok) throw new Error(d.message||('HTTP '+res.status));
+  return d;
+}
+
+// ── Formatters ───────────────────────────────────────────────────────────────
+var fmt=n=>'\u20B9'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+var fmtD=d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-';
+var ini=n=>(n||'U').slice(0,2).toUpperCase();
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function bdg(t,cls){
+  var map={INCOME:'bi',EXPENSE:'be',SUCCESS:'bs2',FAILED:'bf',CREATED:'bc',REFUNDED:'br',
+           ADMIN:'bad',ANALYST:'ban',VIEWER:'bv',ACTIVE:'bact',INACTIVE:'bin'};
+  return '<span class="badge '+(cls||map[t]||'bv')+'">'+esc(t)+'</span>';
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg,type){
+  var c=document.getElementById('tc'),el=document.createElement('div');
+  el.className='toast '+(type||'ok');el.textContent=msg;c.appendChild(el);
+  setTimeout(()=>el.style.opacity='0',3200);setTimeout(()=>el.remove(),3600);
+}
+
+// ── Auth tabs ──────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  var isIn=tab==='in';
+  document.getElementById('form-in').classList.toggle('hidden',!isIn);
+  document.getElementById('form-up').classList.toggle('hidden',isIn);
+  document.getElementById('tab-in').classList.toggle('active',isIn);
+  document.getElementById('tab-up').classList.toggle('active',!isIn);
+}
+function ql(u,p,btn){
+  document.querySelectorAll('.rc').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('lu').value=u;
+  document.getElementById('lp').value=p;
+}
+function clearSuErr(){
+  document.getElementById('suerr').classList.add('hidden');
+  document.getElementById('suok').classList.add('hidden');
+}
+
+function showLogin(){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('ls').classList.remove('hidden');
+  switchTab('in');
+}
+
+function enterApp(r){
+  document.getElementById('ls').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('sav').textContent=ini(r.username);
+  document.getElementById('sun').textContent=r.username;
+  document.getElementById('sur').textContent=r.role;
+  document.getElementById('aurl').textContent=S.base.replace(/https?:\/\//,'');
+  document.getElementById('adot').classList.remove('off');
+  rbac();nav('dashboard');
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────────
+async function doLogin(){
+  var username=document.getElementById('lu').value.trim();
+  var password=document.getElementById('lp').value;
+  var rawUrl=document.getElementById('lurl').value;
+  var errEl=document.getElementById('lerr');
+  var btn=document.getElementById('login-btn');
+  errEl.classList.add('hidden');
+  if(!username||!password){errEl.textContent='Enter username and password';errEl.classList.remove('hidden');return;}
+  var parsedBase=parseBase(rawUrl);
+  // Auto-correct the field so user sees what will be used
+  document.getElementById('lurl').value=parsedBase;
+  S.base=parsedBase;
+  btn.disabled=true; btn.textContent='Signing in...';
+  try{
+    var d=await api('POST','/api/auth/login',{username,password});
+    var r=d.data;
+    S.token=r.token;S.role=r.role;S.user=r.username;
+    saveSession();
+    enterApp(r);
+    toast('Welcome, '+r.username+'!');
+  }catch(e){
+    document.getElementById('adot').classList.add('off');
+    errEl.textContent=e.message||'Login failed';
+    errEl.classList.remove('hidden');
+  }finally{
+    btn.disabled=false; btn.textContent='Sign in';
+  }
+}
+
+// ── Sign up ───────────────────────────────────────────────────────────────────
+async function doSignup(){
+  var username=document.getElementById('su-user').value.trim();
+  var email=document.getElementById('su-email').value.trim();
+  var password=document.getElementById('su-pass').value;
+  var confirm=document.getElementById('su-pass2').value;
+  var role=document.getElementById('su-role').value;
+  var rawUrl=document.getElementById('lurl').value;
+  var errEl=document.getElementById('suerr');
+  var okEl=document.getElementById('suok');
+  var btn=document.getElementById('su-btn');
+  function showErr(m){errEl.textContent=m;errEl.classList.remove('hidden');okEl.classList.add('hidden');}
+
+  if(!username) return showErr('Username is required.');
+  if(username.length<3) return showErr('Username must be at least 3 characters.');
+  if(username.length>50) return showErr('Username must not exceed 50 characters.');
+  if(!/^[a-zA-Z0-9_.\-]+$/.test(username)) return showErr('Username can only contain letters, numbers, _ . -');
+  if(!email) return showErr('Email is required.');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr('Please enter a valid email address.');
+  if(!password) return showErr('Password is required.');
+  if(password.length<6) return showErr('Password must be at least 6 characters.');
+  if(!confirm) return showErr('Please confirm your password.');
+  if(password!==confirm) return showErr('Passwords do not match.');
+  if(!role) return showErr('Please select a role.');
+
+  var parsedBase=parseBase(rawUrl);
+  document.getElementById('lurl').value=parsedBase;
+  S.base=parsedBase;
+  btn.disabled=true; btn.textContent='Creating account...';
+  errEl.classList.add('hidden');
+
+  try{
+    var d=await api('POST','/api/auth/register',{username,email,password,role});
+    var r=d.data;
+    okEl.textContent='Account created! Signing you in...';
+    okEl.classList.remove('hidden');
+    S.token=r.token;S.role=r.role;S.user=r.username;
+    saveSession();
+    setTimeout(()=>{ enterApp(r); toast('Welcome, '+r.username+'! Account created.'); }, 700);
+  }catch(e){
+    showErr(e.message||'Registration failed. Please try again.');
+    btn.disabled=false; btn.textContent='Create account';
+  }
+}
+
+function logout(){
+  S.token=null;S.role=null;clearSession();destroyCharts();
+  showLogin();
+}
+
+function rbac(){
+  var isA=S.role==='ADMIN',isAn=isA||S.role==='ANALYST';
+  document.querySelectorAll('.adm').forEach(el=>el.classList.toggle('hidden',!isA));
+  document.querySelectorAll('.ao').forEach(el=>el.classList.toggle('hidden',!isAn));
+}
+
+// ── Nav ──────────────────────────────────────────────────────────────────────
+function nav(page){
+  if(page==='analytics' && S.role==='VIEWER'){ toast('Analytics requires ANALYST or ADMIN role','err'); return; }
+  if((page==='users'||page==='cache') && S.role!=='ADMIN'){ toast('Admin access required','err'); return; }
+  S.page=page;destroyCharts();
+  document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.p===page));
+  var titles={dashboard:'Dashboard',transactions:'Transactions',analytics:'Analytics',
+               payments:'Payments',users:'Users',cache:'Cache management',ai:'AI Assistant'};
+  document.getElementById('pt').textContent=titles[page]||page;
+  var btn=document.getElementById('tbtn');btn.innerHTML='';
+  if(page==='transactions'&&S.role==='ADMIN')btn.innerHTML='<button class="btn bp bsm" onclick="openTxMo()">+ New transaction</button>';
+  if(page==='payments')btn.innerHTML='<button class="btn bp bsm" onclick="openPayMo()">+ Create payment</button>';
+  if(page==='users')btn.innerHTML='<button class="btn bp bsm" onclick="openUserMo()">+ Add user</button>';
+  var pages={dashboard:rDash,transactions:rTx,analytics:rAn,payments:rPay,users:rUsers,cache:rCache,ai:rAi};
+  (pages[page]||rDash)();
+}
+
+function destroyCharts(){Object.values(S.charts).forEach(c=>{try{c.destroy()}catch(e){}});S.charts={};}
+function loading(){document.getElementById('ct').innerHTML='<div class="lr"><div class="spin"></div>Loading...</div>';}
+function errView(msg){document.getElementById('ct').innerHTML='<div class="empty"><div style="font-size:28px;margin-bottom:12px;opacity:.3">!</div><div style="font-size:15px;color:var(--red);margin-bottom:8px">Request failed</div><div style="font-family:var(--mono);font-size:12px">'+esc(msg)+'</div><div style="margin-top:12px;font-size:12px;color:var(--text3)">Is the backend running at <strong style="color:var(--text2)">'+esc(S.base)+'</strong>?</div><button class="btn bsm" style="margin-top:14px" onclick="nav(S.page)">Retry</button></div>';}
+
+var co={color:'#55627a',font:{size:11}};
+var gc={color:'rgba(255,255,255,0.04)'};
+function mkChart(id,type,data,options){
+  var el=document.getElementById(id);if(!el)return null;
+  return new Chart(el,Object.assign({type:type,data:data},{options:Object.assign({responsive:true,maintainAspectRatio:false},options)}));
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function rDash(){
+  loading();
+  try{
+    var reqs=[api('GET','/api/dashboard/summary')];
+    if(S.role!=='VIEWER') reqs.push(api('GET','/api/dashboard/trends'));
+    var results=await Promise.all(reqs);
+    var sum=results[0], trends=results[1];
+    var s=sum.data,recent=s.recentTransactions||[],canT=trends&&trends.data;
+    var html='';
+    html+='<div class="metrics">';
+    html+='<div class="metric"><div class="mi" style="background:#0d3a2c"><svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.8"><path d="M8 2v12M12 6l-4-4-4 4"/></svg></div><div class="ml">Total income</div><div class="mv green">'+fmt(s.totalIncome)+'</div><div class="ms">All time</div></div>';
+    html+='<div class="metric"><div class="mi" style="background:#3a1212"><svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.8"><path d="M8 2v12M12 10l-4 4-4-4"/></svg></div><div class="ml">Total expenses</div><div class="mv red">'+fmt(s.totalExpenses)+'</div><div class="ms">All time</div></div>';
+    html+='<div class="metric"><div class="mi" style="background:#0f1f3d"><svg viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v2.5l2 1"/></svg></div><div class="ml">Net balance</div><div class="mv '+(s.netBalance>=0?'green':'red')+'">'+fmt(s.netBalance)+'</div><div class="ms">'+(s.netBalance>=0?'Positive':'Negative')+'</div></div>';
+    html+='<div class="metric"><div class="mi" style="background:#1c1c40"><svg viewBox="0 0 16 16" fill="none" stroke="var(--purple)" stroke-width="1.8"><path d="M2 4h12M2 8h9M2 12h6"/></svg></div><div class="ml">Categories</div><div class="mv amber">'+((s.categoryTotals||[]).length)+'</div><div class="ms">Tracked</div></div>';
+    html+='</div>';
+
+    html+='<div class="g2 mb20">';
+    if(canT){
+      html+='<div class="card s2"><div class="ct">Monthly trend - income vs expenses</div><div style="position:relative;height:200px"><canvas id="c-trend" role="img" aria-label="Monthly income vs expense trend"></canvas></div></div>';
+    }
+    html+='<div class="card"><div class="ct">Expense breakdown</div><div style="position:relative;height:200px"><canvas id="c-cat" role="img" aria-label="Expense category chart"></canvas></div></div>';
+    html+='<div class="card"><div class="ct">Income vs expense split</div><div style="position:relative;height:200px"><canvas id="c-spl" role="img" aria-label="Income expense split"></canvas></div></div>';
+    html+='</div>';
+
+    html+='<div class="card"><div class="ct">Recent activity</div><div class="tw"><table><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>Amount</th><th>Notes</th><th>By</th></tr></thead><tbody>';
+    if(recent.length===0){
+      html+='<tr><td colspan="6"><div class="empty">No transactions yet.</div></td></tr>';
+    }else{
+      recent.forEach(function(t){
+        html+='<tr><td>'+fmtD(t.date)+'</td><td style="font-weight:500">'+esc(t.category)+'</td><td>'+bdg(t.type)+'</td><td class="'+(t.type==='INCOME'?'ap':'an')+'">'+(t.type==='INCOME'?'+':'-')+fmt(t.amount)+'</td><td class="tm">'+esc(t.notes||'-')+'</td><td class="tm">'+esc(t.createdBy)+'</td></tr>';
+      });
+    }
+    html+='</tbody></table></div></div>';
+
+    document.getElementById('ct').innerHTML=html;
+
+    setTimeout(function(){
+      if(canT&&document.getElementById('c-trend')){
+        var td=trends.data.trends||[];
+        S.charts.tr=mkChart('c-trend','line',{
+          labels:td.map(function(m){return m.monthLabel;}),
+          datasets:[
+            {label:'Income',data:td.map(function(m){return m.income;}),borderColor:'#34d399',backgroundColor:'rgba(52,211,153,0.08)',tension:.3,pointRadius:2,fill:true},
+            {label:'Expense',data:td.map(function(m){return m.expenses;}),borderColor:'#f87171',backgroundColor:'rgba(248,113,113,0.05)',tension:.3,pointRadius:2,borderDash:[4,3],fill:true}
+          ]
+        },{plugins:{legend:{labels:{color:'#8892a4',font:{size:11}}}},scales:{x:{grid:gc,ticks:co},y:{grid:gc,ticks:Object.assign({},co,{callback:function(v){return '\u20B9'+Math.round(v/1000)+'k';}})}}});
+      }
+      var cats=(s.categoryTotals||[]).filter(function(c){return c.type==='EXPENSE';}).slice(0,8);
+      var cl=['#4f8ef7','#34d399','#a78bfa','#fbbf24','#2dd4bf','#f87171','#fb923c','#e879f9'];
+      if(document.getElementById('c-cat')){
+        if(cats.length){
+          S.charts.cat=mkChart('c-cat','doughnut',{
+            labels:cats.map(function(c){return c.category;}),
+            datasets:[{data:cats.map(function(c){return c.total;}),backgroundColor:cl,borderWidth:0,hoverOffset:6}]
+          },{plugins:{legend:{position:'right',labels:{color:'#8892a4',font:{size:11},padding:8,boxWidth:10}}},cutout:'65%'});
+        }else{
+          document.getElementById('c-cat').parentElement.innerHTML='<div class="empty">No expense data yet.</div>';
+        }
+      }
+      if(document.getElementById('c-spl')){
+        S.charts.spl=mkChart('c-spl','doughnut',{
+          labels:['Income','Expense'],
+          datasets:[{data:[s.totalIncome,s.totalExpenses],backgroundColor:['#34d399','#f87171'],borderWidth:0,hoverOffset:6}]
+        },{plugins:{legend:{position:'right',labels:{color:'#8892a4',font:{size:11},padding:8,boxWidth:10}}},cutout:'60%'});
+      }
+    },50);
+  }catch(e){errView(e.message);}
+}
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+async function rTx(){
+  loading();var f=S.txf;
+  try{
+    var p=new URLSearchParams();
+    p.set('page',f.page);p.set('size',f.size);
+    if(f.type!=='ALL') p.set('type',f.type);
+    if(f.category) p.set('category',f.category);
+    if(f.startDate) p.set('startDate',f.startDate);
+    if(f.endDate) p.set('endDate',f.endDate);
+    var d=await api('GET','/api/transactions?'+p.toString());
+    var pg=d.data,rows=pg.content||[],cw=S.role==='ADMIN';
+
+    var html='<div class="filters">';
+    html+='<select onchange="S.txf.type=this.value;S.txf.page=0;rTx()">';
+    ['ALL','INCOME','EXPENSE'].forEach(function(v){html+='<option value="'+v+'" '+(f.type===v?'selected':'')+'>'+v+'</option>';});
+    html+='</select>';
+    html+='<input placeholder="Search category..." value="'+esc(f.category)+'" style="width:180px" oninput="S.txf.category=this.value;S.txf.page=0;rTx()">';
+    html+='<input type="date" value="'+esc(f.startDate)+'" title="Start date" onchange="S.txf.startDate=this.value;S.txf.page=0;rTx()">';
+    html+='<input type="date" value="'+esc(f.endDate)+'" title="End date" onchange="S.txf.endDate=this.value;S.txf.page=0;rTx()">';
+    if(f.type!=='ALL'||f.category||f.startDate||f.endDate) html+='<button class="btn bsm" onclick="clrTxF()">Clear</button>';
+    html+='<span class="fc">'+pg.totalElements+' record'+(pg.totalElements!==1?'s':'')+'</span>';
+    html+='</div>';
+
+    html+='<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table><thead><tr><th>#</th><th>Date</th><th>Category</th><th>Type</th><th>Amount</th><th>Notes</th><th>By</th>'+(cw?'<th>Actions</th>':'')+'</tr></thead><tbody>';
+    if(rows.length===0){
+      html+='<tr><td colspan="'+(cw?8:7)+'"><div class="empty">No transactions found.</div></td></tr>';
+    }else{
+      rows.forEach(function(t){
+        html+='<tr><td class="tm">'+t.id+'</td><td>'+fmtD(t.date)+'</td><td style="font-weight:500">'+esc(t.category)+'</td><td>'+bdg(t.type)+'</td><td class="'+(t.type==='INCOME'?'ap':'an')+'">'+(t.type==='INCOME'?'+':'-')+fmt(t.amount)+'</td><td class="tm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(t.notes||'')+'">'+esc(t.notes||'-')+'</td><td class="tm">'+esc(t.createdBy)+'</td>';
+        if(cw) html+='<td style="white-space:nowrap"><button class="btn bsm" onclick="openTxMo('+t.id+')">Edit</button> <button class="btn bsm bd" onclick="delTx('+t.id+')">Delete</button></td>';
+        html+='</tr>';
+      });
+    }
+    html+='</tbody></table></div></div>';
+
+    html+='<div class="pg"><span class="pi">Page '+(pg.page+1)+' of '+Math.max(1,pg.totalPages)+' - '+pg.totalElements+' total</span><div class="pbs">';
+    for(var i=0;i<pg.totalPages;i++){
+      html+='<button class="pb '+(i===pg.page?'ap':'')+'" onclick="S.txf.page='+i+';rTx()">'+(i+1)+'</button>';
+    }
+    html+='</div></div>';
+
+    document.getElementById('ct').innerHTML=html;
+  }catch(e){errView(e.message);}
+}
+function clrTxF(){S.txf={type:'ALL',category:'',startDate:'',endDate:'',page:0,size:15};rTx();}
+async function delTx(id){
+  if(!confirm('Soft-delete transaction #'+id+'?\nRecord preserved for audit.'))return;
+  try{await api('DELETE','/api/transactions/'+id);toast('Transaction soft-deleted');rTx();}
+  catch(e){toast(e.message,'err');}
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+async function rAn(){
+  loading();
+  try{
+    var results=await Promise.all([api('GET','/api/dashboard/trends'),api('GET','/api/dashboard/categories')]);
+    var tr=results[0], ca=results[1];
+    var td=tr.data.trends||[],cd=ca.data||[];
+    var ec=cd.filter(function(c){return c.type==='EXPENSE';}).sort(function(a,b){return b.total-a.total;}).slice(0,10);
+    var ic=cd.filter(function(c){return c.type==='INCOME';}).sort(function(a,b){return b.total-a.total;});
+    var net=td.map(function(m){return m.net;});
+
+    var html='';
+    if(td.length===0){
+      html+='<div class="card mb20"><div class="empty">No transaction data available yet. Add some transactions to see analytics.</div></div>';
+      document.getElementById('ct').innerHTML=html;
+      return;
+    }
+
+    html+='<div class="card mb20 s2"><div class="ct">12-month income vs expense trend</div><div style="position:relative;height:240px"><canvas id="c-tr2" role="img" aria-label="12-month trend"></canvas></div></div>';
+    html+='<div class="g2 mb20">';
+    html+='<div class="card"><div class="ct">Expenses by category</div><div style="position:relative;height:'+Math.max(200,ec.length*36+60)+'px">'+(ec.length?'<canvas id="c-ec" role="img" aria-label="Expense categories"></canvas>':'<div class="empty">No expense data.</div>')+'</div></div>';
+    html+='<div class="card"><div class="ct">Income by category</div><div style="position:relative;height:'+Math.max(200,ic.length*36+60)+'px">'+(ic.length?'<canvas id="c-ic" role="img" aria-label="Income categories"></canvas>':'<div class="empty">No income data.</div>')+'</div></div>';
+    html+='</div>';
+    html+='<div class="card"><div class="ct">Monthly net balance</div><div style="position:relative;height:200px"><canvas id="c-net" role="img" aria-label="Net balance chart"></canvas></div></div>';
+
+    document.getElementById('ct').innerHTML=html;
+
+    var lb=td.map(function(m){return m.monthLabel;}),inc=td.map(function(m){return m.income;}),exp=td.map(function(m){return m.expenses;});
+    setTimeout(function(){
+      S.charts.tr2=mkChart('c-tr2','line',{labels:lb,datasets:[
+        {label:'Income',data:inc,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,0.06)',tension:.3,pointRadius:2,fill:true},
+        {label:'Expense',data:exp,borderColor:'#f87171',backgroundColor:'transparent',tension:.3,pointRadius:2,borderDash:[4,3]},
+        {label:'Net',data:net,borderColor:'#4f8ef7',backgroundColor:'transparent',tension:.3,pointRadius:2,borderDash:[2,2]}
+      ]},{plugins:{legend:{labels:{color:'#8892a4',font:{size:11}}}},scales:{x:{grid:gc,ticks:co},y:{grid:gc,ticks:Object.assign({},co,{callback:function(v){return '\u20B9'+Math.round(v/1000)+'k';}})}}});
+      if(ec.length) S.charts.ec=mkChart('c-ec','bar',{labels:ec.map(function(c){return c.category;}),datasets:[{data:ec.map(function(c){return c.total;}),backgroundColor:'#f87171',borderRadius:3}]},
+        {indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:Object.assign({},co,{callback:function(v){return '\u20B9'+Math.round(v/1000)+'k';}})},y:{grid:{display:false},ticks:co}}});
+      if(ic.length) S.charts.ic=mkChart('c-ic','bar',{labels:ic.map(function(c){return c.category;}),datasets:[{data:ic.map(function(c){return c.total;}),backgroundColor:'#34d399',borderRadius:3}]},
+        {indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:Object.assign({},co,{callback:function(v){return '\u20B9'+Math.round(v/1000)+'k';}})},y:{grid:{display:false},ticks:co}}});
+      S.charts.net=mkChart('c-net','bar',{labels:lb,datasets:[{data:net,backgroundColor:net.map(function(v){return v>=0?'rgba(52,211,153,0.7)':'rgba(248,113,113,0.7)';}),borderRadius:3}]},
+        {plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:co},y:{grid:gc,ticks:Object.assign({},co,{callback:function(v){return '\u20B9'+Math.round(v/1000)+'k';}})}}});
+    },50);
+  }catch(e){errView(e.message);}
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+async function rPay(){
+  loading();
+  try{
+    var reqs=[S.role==='ADMIN'?api('GET','/api/payments?page=0&size=30'):api('GET','/api/payments/my?page=0&size=30')];
+    if(S.role==='ADMIN') reqs.push(api('GET','/api/payments/revenue'));
+    var results=await Promise.all(reqs);
+    var mine=results[0], rev=results[1];
+    var pays=mine.data.content||[],revenue=rev?rev.data.totalRevenue:null;
+    var ok=pays.filter(function(p){return p.status==='SUCCESS';});
+    var fail=pays.filter(function(p){return p.status==='FAILED';});
+    var pend=pays.filter(function(p){return p.status==='CREATED';});
+
+    var html='';
+    if(S.role==='ADMIN'){
+      html+='<div class="metrics mb20">';
+      html+='<div class="metric"><div class="ml">Total revenue</div><div class="mv green">'+(revenue!=null?fmt(revenue):'-')+'</div><div class="ms">SUCCESS payments</div></div>';
+      html+='<div class="metric"><div class="ml">Successful</div><div class="mv green">'+ok.length+'</div></div>';
+      html+='<div class="metric"><div class="ml">Pending</div><div class="mv amber">'+pend.length+'</div></div>';
+      html+='<div class="metric"><div class="ml">Failed</div><div class="mv red">'+fail.length+'</div></div>';
+      html+='</div>';
+    }
+
+    html+='<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table><thead><tr><th>Order ID</th><th>Payment ID</th><th>Description</th><th>Amount</th><th>Status</th><th>By</th><th>Date</th>'+(S.role==='ADMIN'?'<th>Action</th>':'')+'</tr></thead><tbody>';
+    if(pays.length===0){
+      html+='<tr><td colspan="'+(S.role==='ADMIN'?8:7)+'"><div class="empty">No payments found. Click "+ Create payment" to test the Razorpay flow.</div></td></tr>';
+    }else{
+      pays.forEach(function(p){
+        html+='<tr><td class="tm">'+esc(p.razorpayOrderId)+'</td><td class="tm">'+esc(p.razorpayPaymentId||'-')+'</td><td style="font-weight:500">'+esc(p.description||'-')+'</td><td style="font-weight:500;font-family:var(--mono)">'+fmt(p.amount)+'</td><td>'+bdg(p.status)+'</td><td class="tm">'+esc(p.initiatedBy)+'</td><td>'+fmtD(p.createdAt)+'</td>';
+        if(S.role==='ADMIN'){
+          html+='<td>'+(p.status==='CREATED'?'<button class="btn bsm bs" onclick="resumeCheckout(\''+esc(p.razorpayOrderId)+'\','+p.amount+')">Pay</button>':'-')+'</td>';
+        }
+        html+='</tr>';
+      });
+    }
+    html+='</tbody></table></div></div>';
+
+    document.getElementById('ct').innerHTML=html;
+  }catch(e){errView(e.message);}
+}
+
+// ── Razorpay checkout integration ───────────────────────────────────────────
+function openPayMo(){
+  openMo('<div class="mt">Create payment</div>'+
+    '<div class="msub">POST /api/payments/create-order -&gt; Razorpay Checkout -&gt; POST /api/payments/verify</div>'+
+    '<div class="cb">Test mode: use card <span>4111 1111 1111 1111</span>, any future expiry, any CVV</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Amount (\u20B9) <span class="req">*</span></label><input class="fi" id="pa" type="number" step="0.01" min="1" placeholder="499.00"></div>'+
+      '<div class="ff"><label class="fl">Currency</label><select class="fi" id="pc"><option>INR</option></select></div>'+
+    '</div>'+
+    '<div class="ff"><label class="fl">Description <span class="req">*</span></label><input class="fi" id="pd" placeholder="e.g. Monthly Premium Plan"></div>'+
+    '<div id="payerr" class="form-err hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="pay-btn" onclick="startCheckout()">Pay with Razorpay</button></div>');
+}
+
+async function startCheckout(){
+  var amt=parseFloat(document.getElementById('pa').value);
+  var cur=document.getElementById('pc').value;
+  var desc=document.getElementById('pd').value.trim();
+  var errEl=document.getElementById('payerr');
+  var btn=document.getElementById('pay-btn');
+  errEl.classList.add('hidden');
+  if(!amt||amt<1){errEl.textContent='Amount must be \u2265 \u20B91';errEl.classList.remove('hidden');return;}
+  if(!desc){errEl.textContent='Description is required';errEl.classList.remove('hidden');return;}
+
+  btn.disabled=true; btn.textContent='Creating order...';
+  try{
+    var d=await api('POST','/api/payments/create-order',{amount:amt,currency:cur,description:desc});
+    var order=d.data;
+    closeMo();
+
+    if(typeof Razorpay==='undefined'){
+      toast('Order created: '+order.razorpayOrderId+' (Razorpay SDK unavailable - cannot open checkout)','inf');
+      rPay();
+      return;
+    }
+
+    var options={
+      key:order.keyId,
+      amount:order.amountInPaise,
+      currency:order.currency,
+      name:'FinanceDash',
+      description:order.description,
+      order_id:order.razorpayOrderId,
+      handler:function(response){
+        verifyPayment(response);
+      },
+      prefill:{ name:S.user },
+      theme:{ color:'#4f8ef7' },
+      modal:{
+        ondismiss:function(){ toast('Payment cancelled - order remains pending','inf'); rPay(); }
+      }
+    };
+    var rzp=new Razorpay(options);
+    rzp.on('payment.failed',function(resp){
+      toast('Payment failed: '+(resp.error&&resp.error.description||'Unknown error'),'err');
+      rPay();
+    });
+    rzp.open();
+  }catch(e){
+    errEl.textContent=e.message;
+    errEl.classList.remove('hidden');
+    btn.disabled=false; btn.textContent='Pay with Razorpay';
+  }
+}
+
+async function verifyPayment(response){
+  try{
+    await api('POST','/api/payments/verify',{
+      razorpayOrderId:response.razorpay_order_id,
+      razorpayPaymentId:response.razorpay_payment_id,
+      razorpaySignature:response.razorpay_signature
+    });
+    toast('Payment successful and verified!');
+  }catch(e){
+    toast('Verification failed: '+e.message,'err');
+  }
+  rPay();
+}
+
+// Resume checkout for an existing CREATED order (admin re-trigger)
+function resumeCheckout(orderId,amount){
+  if(typeof Razorpay==='undefined'){toast('Razorpay SDK unavailable','err');return;}
+  var options={
+    key:document.getElementById('aurl')?undefined:undefined, // keyId not known here; fall back gracefully
+    amount:Math.round(amount*100),
+    currency:'INR',
+    name:'FinanceDash',
+    order_id:orderId,
+    handler:function(response){ verifyPayment(response); },
+    theme:{ color:'#4f8ef7' },
+    modal:{ ondismiss:function(){ toast('Payment cancelled','inf'); } }
+  };
+  // keyId is required; without it Razorpay throws. Inform user to create a new order instead.
+  toast('Use "+ Create payment" to start a fresh checkout for this amount','inf');
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+async function rUsers(){
+  loading();
+  try{
+    var d=await api('GET','/api/users?page=0&size=50');
+    var users=d.data.content||[];
+    document.getElementById('uc').textContent=users.length;
+
+    var html='<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table><thead><tr><th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>';
+    if(users.length===0){
+      html+='<tr><td colspan="7"><div class="empty">No users found.</div></td></tr>';
+    }else{
+      users.forEach(function(u){
+        var avBg = u.role==='ADMIN'?'background:#534ab7':u.role==='ANALYST'?'background:#185fa5':'';
+        html+='<tr><td class="tm">'+u.id+'</td><td><div style="display:flex;align-items:center;gap:8px"><div class="av" style="width:28px;height:28px;font-size:11px;'+avBg+'">'+ini(u.username)+'</div><span style="font-weight:500">'+esc(u.username)+'</span></div></td><td class="tm">'+esc(u.email)+'</td><td>'+bdg(u.role)+'</td><td>'+bdg(u.status)+'</td><td>'+fmtD(u.createdAt)+'</td>';
+        html+='<td style="white-space:nowrap"><button class="btn bsm" onclick="openEditUsr('+u.id+',\''+esc(u.username)+'\',\''+esc(u.email)+'\',\''+u.role+'\',\''+u.status+'\')">Edit</button> <button class="btn bsm '+(u.status==='ACTIVE'?'bd':'bs')+'" onclick="toggleSt('+u.id+',\''+u.status+'\')">'+(u.status==='ACTIVE'?'Deactivate':'Activate')+'</button> <button class="btn bsm bd" onclick="delUsr('+u.id+')">Del</button></td>';
+        html+='</tr>';
+      });
+    }
+    html+='</tbody></table></div></div>';
+
+    document.getElementById('ct').innerHTML=html;
+  }catch(e){errView(e.message);}
+}
+async function toggleSt(id,cur){
+  try{await api('PUT','/api/users/'+id,{status:cur==='ACTIVE'?'INACTIVE':'ACTIVE'});toast('Status updated');rUsers();}
+  catch(e){toast(e.message,'err');}
+}
+async function delUsr(id){
+  if(!confirm('Delete user #'+id+'? This cannot be undone.'))return;
+  try{await api('DELETE','/api/users/'+id);toast('User deleted');rUsers();}
+  catch(e){toast(e.message,'err');}
+}
+
+// ── Cache ─────────────────────────────────────────────────────────────────────
+function rCache(){
+  var caches=[
+    {name:'dashboard_summary',ttl:'10 min',desc:'Income, expenses, net, recent transactions'},
+    {name:'dashboard_trends', ttl:'10 min',desc:'12-month trend data - evicted on tx write'},
+    {name:'category_totals',  ttl:'10 min',desc:'Per-category aggregations'},
+    {name:'transaction_by_id',ttl:'5 min', desc:'Individual transaction records'},
+    {name:'user_by_id',       ttl:'30 min',desc:'User profiles - updated rarely'},
+    {name:'payment_by_id',    ttl:'15 min',desc:'Payment records - immutable after SUCCESS'}
+  ];
+  var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">';
+  html+='<div><div style="font-size:13px;color:var(--text2)">Redis cache management - Admin only</div><div class="tm" style="margin-top:4px">spring.data.redis.host=localhost : port=6379. If Redis is unreachable, all reads/writes fall back to MySQL automatically.</div></div>';
+  html+='<button class="btn bd" onclick="clrAll()">Clear all caches</button>';
+  html+='</div>';
+  caches.forEach(function(c){
+    html+='<div class="cc"><div><div class="cn">'+c.name+'</div><div class="cd">'+c.desc+'</div></div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><span class="tp">TTL '+c.ttl+'</span><button class="btn bsm" onclick="evict(\''+c.name+'\')">Evict</button></div></div>';
+  });
+  document.getElementById('ct').innerHTML=html;
+}
+async function evict(n){
+  try{var d=await api('DELETE','/api/cache/'+n); toast(d.message||('Cache evicted: '+n));}
+  catch(e){toast(e.message,'err');}
+}
+async function clrAll(){
+  if(!confirm('Clear ALL Redis caches?'))return;
+  try{var d=await api('DELETE','/api/cache/all'); toast(d.message||'All caches cleared');}
+  catch(e){toast(e.message,'err');}
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openMo(html){document.getElementById('mdi').innerHTML=html;document.getElementById('modal').classList.remove('hidden');}
+function closeMo(){document.getElementById('modal').classList.add('hidden');}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMo();});
+
+// ── Transaction modal ─────────────────────────────────────────────────────────
+async function openTxMo(id){
+  var tx=null;
+  if(id){
+    try{tx=(await api('GET','/api/transactions/'+id)).data;}catch(e){toast(e.message,'err');return;}
+  }
+  var today=new Date().toISOString().slice(0,10);
+  openMo(
+    '<div class="mt">'+(id?'Edit':'New')+' transaction</div>'+
+    '<div class="msub">'+(id?'PUT /api/transactions/'+id:'POST /api/transactions')+'</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Amount (\u20B9) <span class="req">*</span></label><input class="fi" id="ta" type="number" step="0.01" min="0.01" value="'+(tx?tx.amount:'')+'" placeholder="0.00"></div>'+
+      '<div class="ff"><label class="fl">Type <span class="req">*</span></label><select class="fi" id="tt"><option value="INCOME" '+(tx&&tx.type==='INCOME'?'selected':'')+'>INCOME</option><option value="EXPENSE" '+(tx&&tx.type==='EXPENSE'?'selected':'')+'>EXPENSE</option></select></div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Category <span class="req">*</span> <button type="button" class="btn bsm" style="padding:2px 7px;font-size:11px;margin-left:4px" onclick="aiSuggestCat()" title="AI suggest">&#129302; AI</button></label><input class="fi" id="tc2" value="'+(tx?esc(tx.category):'')+'" placeholder="e.g. Salary, Rent"></div>'+
+      '<div class="ff"><label class="fl">Date <span class="req">*</span></label><input class="fi" id="td" type="date" value="'+(tx?tx.date:today)+'"></div>'+
+    '</div>'+
+    '<div class="ff"><label class="fl">Notes</label><input class="fi" id="tn" value="'+(tx?esc(tx.notes||''):'')+'" placeholder="Optional"></div>'+
+    '<div id="txerr" class="form-err hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="tx-save-btn" onclick="saveTx('+(id||'null')+')">'+(id?'Update':'Create')+'</button></div>'
+  );
+}
+
+async function aiSuggestCat(){
+  var desc  = (document.getElementById('tn')&&document.getElementById('tn').value||'').trim();
+  var type  = document.getElementById('tt')&&document.getElementById('tt').value||'EXPENSE';
+  var catEl = document.getElementById('tc2');
+  if(!catEl) return;
+  var origPlaceholder = catEl.placeholder;
+  catEl.placeholder = 'AI thinking...';
+  catEl.disabled = true;
+  try{
+    var d = await api('POST','/api/ai/categorize',{description:desc||'general transaction',type:type});
+    catEl.value = d.data.category;
+  }catch(e){ toast('AI categorize failed: '+e.message,'err'); }
+  finally{ catEl.disabled=false; catEl.placeholder=origPlaceholder; }
+}
+
+async function saveTx(id){
+  var amt=parseFloat(document.getElementById('ta').value);
+  var type=document.getElementById('tt').value;
+  var cat=document.getElementById('tc2').value.trim();
+  var date=document.getElementById('td').value;
+  var notes=document.getElementById('tn').value.trim();
+  var errEl=document.getElementById('txerr');
+  var btn=document.getElementById('tx-save-btn');
+  errEl.classList.add('hidden');
+  if(!amt||amt<=0){errEl.textContent='Amount must be greater than 0';errEl.classList.remove('hidden');return;}
+  if(!cat){errEl.textContent='Category is required';errEl.classList.remove('hidden');return;}
+  if(!date){errEl.textContent='Date is required';errEl.classList.remove('hidden');return;}
+  btn.disabled=true; btn.textContent='Saving...';
+  try{
+    var body={amount:amt,type:type,category:cat,date:date,notes:notes||null};
+    if(id&&id!=='null'){await api('PUT','/api/transactions/'+id,body);toast('Transaction updated');}
+    else{await api('POST','/api/transactions',body);toast('Transaction created');}
+    closeMo();rTx();
+  }catch(e){
+    errEl.textContent=e.message;errEl.classList.remove('hidden');
+    btn.disabled=false; btn.textContent=(id&&id!=='null')?'Update':'Create';
+  }
+}
+
+// ── User modals ───────────────────────────────────────────────────────────────
+function openUserMo(){
+  openMo(
+    '<div class="mt">Add user</div>'+
+    '<div class="msub">POST /api/auth/register</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Username <span class="req">*</span></label><input class="fi" id="uu" placeholder="min 3 chars"></div>'+
+      '<div class="ff"><label class="fl">Email <span class="req">*</span></label><input class="fi" id="ue" type="email" placeholder="user@example.com"></div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Role <span class="req">*</span></label><select class="fi" id="ur"><option value="VIEWER">VIEWER</option><option value="ANALYST">ANALYST</option><option value="ADMIN">ADMIN</option></select></div>'+
+      '<div class="ff"><label class="fl">Password <span class="req">*</span></label><input class="fi" id="upw" type="password" placeholder="min 6 chars"></div>'+
+    '</div>'+
+    '<div id="usrerr" class="form-err hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="usr-save-btn" onclick="saveUsr(null)">Create user</button></div>'
+  );
+}
+
+function openEditUsr(id,username,email,role,status){
+  openMo(
+    '<div class="mt">Edit: '+esc(username)+'</div>'+
+    '<div class="msub">PUT /api/users/'+id+' - only supplied fields are updated</div>'+
+    '<div class="ff"><label class="fl">Email</label><input class="fi" id="ue" value="'+esc(email)+'"></div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Role</label><select class="fi" id="ur">'+
+        '<option value="VIEWER" '+(role==='VIEWER'?'selected':'')+'>VIEWER</option>'+
+        '<option value="ANALYST" '+(role==='ANALYST'?'selected':'')+'>ANALYST</option>'+
+        '<option value="ADMIN" '+(role==='ADMIN'?'selected':'')+'>ADMIN</option>'+
+      '</select></div>'+
+      '<div class="ff"><label class="fl">Status</label><select class="fi" id="ust">'+
+        '<option value="ACTIVE" '+(status==='ACTIVE'?'selected':'')+'>ACTIVE</option>'+
+        '<option value="INACTIVE" '+(status==='INACTIVE'?'selected':'')+'>INACTIVE</option>'+
+      '</select></div>'+
+    '</div>'+
+    '<div class="ff"><label class="fl">New password (blank = keep current)</label><input class="fi" id="upw" type="password" placeholder="min 6 chars"></div>'+
+    '<div id="usrerr" class="form-err hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="usr-save-btn" onclick="saveUsr('+id+')">Update</button></div>'
+  );
+}
+
+async function saveUsr(id){
+  var errEl=document.getElementById('usrerr');
+  var btn=document.getElementById('usr-save-btn');
+  errEl.classList.add('hidden');
+  try{
+    if(id){
+      var body={};
+      var email=document.getElementById('ue').value.trim();
+      if(email) body.email=email;
+      body.role=document.getElementById('ur').value;
+      body.status=document.getElementById('ust').value;
+      var pw=document.getElementById('upw').value;
+      if(pw){
+        if(pw.length<6){errEl.textContent='Password must be at least 6 characters';errEl.classList.remove('hidden');return;}
+        body.password=pw;
+      }
+      btn.disabled=true; btn.textContent='Saving...';
+      await api('PUT','/api/users/'+id,body);toast('User updated');
+    }else{
+      var username=document.getElementById('uu').value.trim();
+      var email2=document.getElementById('ue').value.trim();
+      var role=document.getElementById('ur').value;
+      var pw2=document.getElementById('upw').value;
+      if(!username||username.length<3){errEl.textContent='Username must be at least 3 characters';errEl.classList.remove('hidden');return;}
+      if(!email2||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email2)){errEl.textContent='Valid email is required';errEl.classList.remove('hidden');return;}
+      if(!pw2||pw2.length<6){errEl.textContent='Password must be at least 6 characters';errEl.classList.remove('hidden');return;}
+      btn.disabled=true; btn.textContent='Creating...';
+      await api('POST','/api/auth/register',{username:username,email:email2,role:role,password:pw2});toast('User created');
+    }
+    closeMo();rUsers();
+  }catch(e){
+    errEl.textContent=e.message;errEl.classList.remove('hidden');
+    btn.disabled=false; btn.textContent=id?'Update':'Create user';
+  }
+}
+
+
+// ── AI Assistant ──────────────────────────────────────────────────────────────
+var aiChatHistory = [];
+var aiActiveTab   = 'chat';
+
+function rAi(){
+  document.getElementById('ct').innerHTML =
+    '<div class="ai-badge-pill">&#9889; Powered by Claude (Anthropic)</div>' +
+    '<div class="ai-tabs">' +
+      '<button class="ai-tab '+(aiActiveTab==='chat'?'act':'')+'" onclick="aiTab('chat')">&#128172; Chat</button>' +
+      '<button class="ai-tab '+(aiActiveTab==='insights'?'act':'')+'" onclick="aiTab('insights')">&#128200; Insights</button>' +
+      '<button class="ai-tab '+(aiActiveTab==='categorize'?'act':'')+'" onclick="aiTab('categorize')">&#127991; Auto-categorize</button>' +
+    '</div>' +
+    '<div id="ai-content"></div>';
+  renderAiTab();
+}
+
+function aiTab(tab){
+  aiActiveTab=tab;
+  document.querySelectorAll('.ai-tab').forEach(function(b,i){
+    b.classList.toggle('act',['chat','insights','categorize'][i]===tab);
+  });
+  renderAiTab();
+}
+
+function renderAiTab(){
+  if(aiActiveTab==='chat')       renderAiChat();
+  else if(aiActiveTab==='insights') renderAiInsights();
+  else                            renderAiCategorize();
+}
+
+// ── Chat tab ──────────────────────────────────────────────────────────────────
+function renderAiChat(){
+  var msgs = aiChatHistory.length === 0
+    ? '<div class="msg ai">Hi! I'm your AI financial assistant. I have access to your transaction data. Ask me anything — e.g.:\n\n• "What is my biggest expense category?"\n• "Am I spending more than I earn?"\n• "How can I improve my savings rate?"</div>'
+    : aiChatHistory.map(function(m){
+        return '<div class="msg '+m.role+'">'+esc(m.content)+'</div>';
+      }).join('');
+
+  document.getElementById('ai-content').innerHTML =
+    '<div class="chat-wrap">' +
+      '<div class="chat-msgs" id="chat-msgs">'+msgs+'</div>' +
+      '<div class="chat-bar">' +
+        '<input class="chat-in" id="chat-input" placeholder="Ask about your finances..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}">' +
+        '<button class="btn bp bsm" onclick="sendChat()">Send</button>' +
+        '<button class="btn bsm" onclick="clearChat()" title="Clear chat">&#128465;</button>' +
+      '</div>' +
+    '</div>';
+  scrollChat();
+}
+
+async function sendChat(){
+  var input = document.getElementById('chat-input');
+  var msg   = (input.value||'').trim();
+  if(!msg) return;
+  input.value='';
+
+  // Add user message
+  aiChatHistory.push({role:'user', content:msg});
+  appendMsg('user', msg);
+
+  // Show typing indicator
+  var typingEl = document.createElement('div');
+  typingEl.className = 'msg typing';
+  typingEl.textContent = 'AI is thinking...';
+  typingEl.id = 'typing-indicator';
+  document.getElementById('chat-msgs').appendChild(typingEl);
+  scrollChat();
+
+  try{
+    // Send last 10 turns max to keep context manageable
+    var historyToSend = aiChatHistory.slice(-10).slice(0,-1).map(function(h){
+      return {role:h.role, content:h.content};
+    });
+    var d = await api('POST','/api/ai/chat',{message:msg, history:historyToSend});
+    var reply = d.data.reply;
+    aiChatHistory.push({role:'assistant', content:reply});
+    var el = document.getElementById('typing-indicator');
+    if(el) el.remove();
+    appendMsg('ai', reply);
+  }catch(e){
+    var el = document.getElementById('typing-indicator');
+    if(el) el.remove();
+    appendMsg('ai', 'Error: '+e.message);
+  }
+}
+
+function appendMsg(role, text){
+  var msgs = document.getElementById('chat-msgs');
+  if(!msgs) return;
+  var el = document.createElement('div');
+  el.className = 'msg '+role;
+  el.textContent = text;
+  msgs.appendChild(el);
+  scrollChat();
+}
+
+function scrollChat(){
+  var msgs = document.getElementById('chat-msgs');
+  if(msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function clearChat(){
+  aiChatHistory=[];
+  renderAiChat();
+}
+
+// ── Insights tab ──────────────────────────────────────────────────────────────
+async function renderAiInsights(){
+  document.getElementById('ai-content').innerHTML =
+    '<div class="card">' +
+      '<div class="ct">Financial health analysis</div>' +
+      '<div class="lr"><div class="spin"></div>Claude is analyzing your transactions...</div>' +
+    '</div>';
+  try{
+    var d = await api('GET','/api/ai/insights');
+    document.getElementById('ai-content').innerHTML =
+      '<div class="card">' +
+        '<div class="ct">Financial health analysis &nbsp;<span style="font-size:11px;color:var(--text3);font-weight:400">Generated by Claude from your live transaction data</span></div>' +
+        '<div class="insight-box">'+esc(d.data.analysis)+'</div>' +
+        '<div style="margin-top:12px;display:flex;gap:8px">' +
+          '<button class="btn bsm" onclick="renderAiInsights()">&#128260; Regenerate</button>' +
+          '<span style="font-size:11px;color:var(--text3);align-self:center">Based on your '+new Date().toLocaleDateString('en-IN')+' transaction data</span>' +
+        '</div>' +
+      '</div>';
+  }catch(e){
+    document.getElementById('ai-content').innerHTML =
+      '<div class="empty">'+esc(e.message)+'<br><br><button class="btn bsm" onclick="renderAiInsights()">Retry</button></div>';
+  }
+}
+
+// ── Categorize tab ────────────────────────────────────────────────────────────
+function renderAiCategorize(){
+  document.getElementById('ai-content').innerHTML =
+    '<div class="card">' +
+      '<div class="ct">AI category suggestion</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:16px">Describe a transaction and Claude will suggest the right category. This is also auto-triggered when you create a new transaction.</div>' +
+      '<div class="fr">' +
+        '<div class="ff"><label class="fl">Transaction type</label><select class="fi" id="cat-type"><option value="EXPENSE">EXPENSE</option><option value="INCOME">INCOME</option></select></div>' +
+        '<div class="ff"><label class="fl">Description / notes</label><input class="fi" id="cat-desc" placeholder="e.g. Amazon groceries, Uber, Netflix"></div>' +
+      '</div>' +
+      '<button class="btn bp bsm" onclick="getSuggestedCategory()">Suggest category</button>' +
+      '<div id="cat-result" style="margin-top:16px"></div>' +
+    '</div>' +
+    '<div class="card" style="margin-top:16px">' +
+      '<div class="ct">How auto-categorize works</div>' +
+      '<div style="font-size:13px;color:var(--text2);line-height:1.8">' +
+        '1. When creating a transaction, type any description in the Notes field<br>' +
+        '2. Click the &#129302; button next to Category to get AI suggestion<br>' +
+        '3. Accept or type your own category<br>' +
+        '4. POST /api/ai/categorize is called with description + type' +
+      '</div>' +
+    '</div>';
+}
+
+async function getSuggestedCategory(){
+  var desc = (document.getElementById('cat-desc').value||'').trim();
+  var type = document.getElementById('cat-type').value;
+  var res  = document.getElementById('cat-result');
+  if(!desc){res.innerHTML='<span style="color:var(--red);font-size:13px">Enter a description first</span>';return;}
+  res.innerHTML='<div class="lr" style="padding:12px 0"><div class="spin"></div>Asking Claude...</div>';
+  try{
+    var d = await api('POST','/api/ai/categorize',{description:desc, type:type});
+    var cat = d.data.category;
+    res.innerHTML =
+      '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border2)">' +
+        '<span style="font-size:24px">&#129302;</span>' +
+        '<div>' +
+          '<div style="font-size:11px;color:var(--text3)">Suggested category</div>' +
+          '<div style="font-size:18px;font-weight:600;color:var(--accent)">'+esc(cat)+'</div>' +
+        '</div>' +
+        '<button class="btn bs bsm" style="margin-left:auto" onclick="document.getElementById('cat-desc').value='';document.getElementById('cat-result').innerHTML=''">Clear</button>' +
+      '</div>';
+  }catch(e){
+    res.innerHTML='<span style="color:var(--red);font-size:13px">'+esc(e.message)+'</span>';
+  }
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+(function(){
+  var initBase=parseBase(S.base);
+  S.base=initBase;
+  document.getElementById('lurl').value=initBase;
+  document.getElementById('lurl-hint').textContent=initBase+' · host:port only, no /api/... path';
+  if(loadSession()){
+    document.getElementById('lurl').value = S.base;
+    enterApp({username:S.user,role:S.role});
+  }
+})();
+</script>
+</body>
+</html>

@@ -72,6 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/revenue").hasRole("ADMIN")
 
                         .anyRequest().authenticated()
+                        
+                        .requestMatchers("/api/ai/**").authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
