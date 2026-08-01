@@ -13,24 +13,17 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 
-/**
- * Calls Anthropic Claude API for three AI features:
- *   1. insights()     — financial health analysis from transaction summary
- *   2. chat()         — free-form Q&A about the user's own data
- *   3. categorize()   — suggest a transaction category from description
- *
- * Uses plain RestTemplate — no Spring AI dependency needed.
- */
 @Service
 public class AiService {
 
     private static final Logger log = LoggerFactory.getLogger(AiService.class);
-
     private static final String CLAUDE_URL    = "https://api.anthropic.com/v1/messages";
     private static final String CLAUDE_MODEL  = "claude-sonnet-4-6";
     private static final String ANTHROPIC_VER = "2023-06-01";
 
-    @Value("${anthropic.api.key}")
+    // FIX: default empty string — app starts even without the key.
+    // Without `:` Spring throws IllegalArgumentException at startup.
+    @Value("${anthropic.api.key:}")
     private String apiKey;
 
     private final TransactionRepository transactionRepository;
@@ -42,10 +35,6 @@ public class AiService {
 
     // ── 1. Financial Insights ─────────────────────────────────────────────────
 
-    /**
-     * Builds a transaction summary from DB and asks Claude for
-     * financial health analysis + actionable recommendations.
-     */
     public String insights() {
         BigDecimal income   = transactionRepository.sumByType(TransactionType.INCOME);
         BigDecimal expenses = transactionRepository.sumByType(TransactionType.EXPENSE);
@@ -54,7 +43,8 @@ public class AiService {
         List<Object[]> catRows = transactionRepository.sumByCategory();
         StringBuilder catSummary = new StringBuilder();
         catRows.forEach(row ->
-            catSummary.append("  - ").append(row[0]).append(" (").append(row[1]).append("): ₹").append(row[2]).append("\n")
+            catSummary.append("  - ").append(row[0])
+                      .append(" (").append(row[1]).append("): \u20B9").append(row[2]).append("\n")
         );
 
         String prompt = """
@@ -62,20 +52,20 @@ public class AiService {
                 3-5 specific, actionable insights. Be concise and direct.
 
                 FINANCIAL SUMMARY:
-                Total Income:   ₹%s
-                Total Expenses: ₹%s
-                Net Balance:    ₹%s
+                Total Income:   \u20B9%s
+                Total Expenses: \u20B9%s
+                Net Balance:    \u20B9%s
 
                 Category Breakdown:
                 %s
 
                 Provide:
-                1. Overall financial health assessment (1 sentence)
-                2. Top 2-3 specific observations about spending patterns
+                1. Overall financial health (1 sentence)
+                2. Top 2-3 spending observations
                 3. 2-3 actionable recommendations
                 4. One key metric to watch
 
-                Keep response under 300 words. Use plain text, no markdown headers.
+                Under 300 words. Plain text, no markdown headers.
                 """.formatted(income, expenses, net, catSummary);
 
         return callClaude(prompt, 600);
@@ -83,12 +73,7 @@ public class AiService {
 
     // ── 2. AI Chat ────────────────────────────────────────────────────────────
 
-    /**
-     * Answers user's finance question with live DB context injected.
-     * history = [{role:"user",content:"..."},{role:"assistant",content:"..."},...]
-     */
     public String chat(String userMessage, List<Map<String, String>> history) {
-        // Inject current financial context into system prompt
         BigDecimal income   = transactionRepository.sumByType(TransactionType.INCOME);
         BigDecimal expenses = transactionRepository.sumByType(TransactionType.EXPENSE);
         BigDecimal net      = income.subtract(expenses);
@@ -98,22 +83,21 @@ public class AiService {
         StringBuilder trendStr = new StringBuilder();
         recent.forEach(row ->
             trendStr.append(row[0]).append("-").append(row[1])
-                    .append(" ").append(row[2]).append(": ₹").append(row[3]).append("\n")
+                    .append(" ").append(row[2]).append(": \u20B9").append(row[3]).append("\n")
         );
 
         String system = """
-                You are a helpful financial assistant for FinanceDash, a personal finance app.
-                
+                You are a helpful financial assistant for FinanceDash.
+
                 CURRENT USER DATA:
-                Total Income:   ₹%s
-                Total Expenses: ₹%s
-                Net Balance:    ₹%s
-                
+                Total Income:   \u20B9%s
+                Total Expenses: \u20B9%s
+                Net Balance:    \u20B9%s
+
                 Recent 3-month trends:
                 %s
-                
-                Answer questions about this data concisely. If asked about something outside \
-                this data scope, say so honestly. Never invent numbers not in the data above.
+
+                Answer concisely. Never invent numbers not shown above.
                 Keep answers under 150 words.
                 """.formatted(income, expenses, net, trendStr);
 
@@ -122,48 +106,44 @@ public class AiService {
 
     // ── 3. Auto-categorize ────────────────────────────────────────────────────
 
-    /**
-     * Given a transaction description (notes/category hint),
-     * returns a suggested category name.
-     * Returns one of the standard categories or a sensible new one.
-     */
     public String categorize(String description, String type) {
         String prompt = """
                 Given this transaction description, suggest the most appropriate single category name.
-                
+
                 Transaction type: %s
                 Description: "%s"
-                
-                Common categories for INCOME: Salary, Freelance, Investment, Business, Bonus, Rental, Other Income
-                Common categories for EXPENSE: Rent, Groceries, Utilities, Transport, Healthcare, Education, Shopping, Entertainment, Travel, Food, Insurance, EMI, Other Expense
-                
-                Reply with ONLY the category name — one to three words, nothing else.
-                If description is empty or unclear, reply: General
+
+                Common INCOME categories: Salary, Freelance, Investment, Business, Bonus, Rental, Other Income
+                Common EXPENSE categories: Rent, Groceries, Utilities, Transport, Healthcare, Education, \
+                Shopping, Entertainment, Travel, Food, Insurance, EMI, Other Expense
+
+                Reply with ONLY the category name — 1 to 3 words, nothing else.
+                If unclear, reply: General
                 """.formatted(type, description);
 
-        return callClaude(prompt, 20).trim()
-                .replaceAll("[\"'\\n]", "")
-                .trim();
+        return callClaude(prompt, 20).trim().replaceAll("[\"'\\n]", "").trim();
     }
 
-    // ── Anthropic API helpers ─────────────────────────────────────────────────
+    // ── Internal helpers ──────────────────────────────────────────────────────
 
     private String callClaude(String userPrompt, int maxTokens) {
         return callClaudeWithHistory(null, userPrompt, Collections.emptyList(), maxTokens);
     }
 
     @SuppressWarnings("unchecked")
-    private String callClaudeWithHistory(String system,
-                                         String userMessage,
-                                         List<Map<String, String>> history,
-                                         int maxTokens) {
+    private String callClaudeWithHistory(String system, String userMessage,
+                                         List<Map<String, String>> history, int maxTokens) {
+        // Guard: if key not configured, return helpful message instead of crashing
+        if (apiKey == null || apiKey.isBlank()) {
+            return "AI unavailable — add 'anthropic.api.key=YOUR_KEY' to application.properties.\n" +
+                   "Get a free key at https://console.anthropic.com";
+        }
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("x-api-key", apiKey);
             headers.set("anthropic-version", ANTHROPIC_VER);
 
-            // Build messages array: history + new user message
             List<Map<String, Object>> messages = new ArrayList<>();
             if (history != null) {
                 history.forEach(h -> messages.add(Map.of(
@@ -176,9 +156,7 @@ public class AiService {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("model",      CLAUDE_MODEL);
             body.put("max_tokens", maxTokens);
-            if (system != null && !system.isBlank()) {
-                body.put("system", system);
-            }
+            if (system != null && !system.isBlank()) body.put("system", system);
             body.put("messages", messages);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
@@ -195,7 +173,7 @@ public class AiService {
 
         } catch (Exception e) {
             log.error("Anthropic API call failed: {}", e.getMessage());
-            return "AI service temporarily unavailable: " + e.getMessage();
+            return "AI service error: " + e.getMessage();
         }
     }
 }

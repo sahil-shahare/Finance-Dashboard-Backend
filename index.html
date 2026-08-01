@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FinanceDash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#161b27;--bg3:#1c2333;--bg4:#232c40;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);
+  --text:#e8eaf0;--text2:#8892a4;--text3:#55627a;
+  --accent:#4f8ef7;--accent2:#3a6fd4;
+  --green:#34d399;--gd:#0d3a2c;--gb:#0f6e56;
+  --red:#f87171;--rd:#3a1212;--rb:#6b1a1a;
+  --amber:#fbbf24;--purple:#a78bfa;--teal:#2dd4bf;
+  --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+  --r:8px;--r2:12px;--sw:220px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:10px}
+/* Layout */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sw);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:56px;flex-shrink:0;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:16px}
+.content{flex:1;overflow-y:auto;padding:24px}
+/* Sidebar */
+.sb-brand{padding:18px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;border-radius:var(--r);background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-icon svg{width:18px;height:18px;color:#fff}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.logo-ver{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border)}
+.av{width:30px;height:30px;border-radius:50%;background:var(--accent2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.sb-nav{padding:8px 0;flex:1;overflow-y:auto}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;font-size:13px;color:var(--text2);border-left:2px solid transparent;user-select:none;transition:background .12s,color .12s}
+.ni:hover{background:var(--bg3);color:var(--text)}
+.ni.active{background:rgba(79,142,247,.1);color:var(--accent);border-left-color:var(--accent);font-weight:500}
+.ni svg{width:15px;height:15px;flex-shrink:0;opacity:.75}
+.ni.active svg{opacity:1}
+.nb{margin-left:auto;background:var(--bg4);color:var(--text3);font-size:10px;padding:1px 6px;border-radius:10px;font-family:var(--mono)}
+.nb.ai-new{background:rgba(167,139,250,.2);color:var(--purple)}
+.sb-foot{padding:12px 18px;border-top:1px solid var(--border)}
+/* Topbar */
+.pt{font-size:16px;font-weight:600;letter-spacing:-.3px}
+.tright{display:flex;align-items:center;gap:10px}
+.api-badge{font-family:var(--mono);font-size:11px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text3);display:flex;align-items:center;gap:6px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.dot.off{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-family:var(--font);transition:background .12s;white-space:nowrap}
+.btn:hover{background:var(--bg4)}.btn:active{transform:scale(.98)}.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.bp{background:var(--accent);border-color:var(--accent);color:#fff}.bp:hover{background:var(--accent2)}
+.bd{background:transparent;border-color:var(--rb);color:var(--red)}.bd:hover{background:var(--rd)}
+.bs{background:transparent;border-color:var(--gb);color:var(--green)}.bs:hover{background:var(--gd)}
+.bsm{padding:5px 10px;font-size:12px}
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+.ct{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:16px}
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px}
+.mi{width:30px;height:30px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.mi svg{width:15px;height:15px}
+.ml{font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500;letter-spacing:.03em;text-transform:uppercase}
+.mv{font-size:20px;font-weight:600;letter-spacing:-.5px}
+.mv.g{color:var(--green)}.mv.r{color:var(--red)}.mv.b{color:var(--accent)}.mv.a{color:var(--amber)}
+.ms{font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+/* Grid */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.s2{grid-column:span 2}.mb20{margin-bottom:20px}
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 14px;font-size:11px;font-weight:600;color:var(--text3);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:background .08s}
+tbody tr:hover td{background:var(--bg3)}
+.tm{font-family:var(--mono);font-size:12px;color:var(--text3)}
+.tw{overflow-x:auto}
+/* Badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.bi{background:var(--gd);color:var(--green);border:1px solid var(--gb)}
+.be{background:var(--rd);color:var(--red);border:1px solid var(--rb)}
+.bs2{background:var(--gd);color:var(--green);border:1px solid var(--gb)}
+.bf{background:var(--rd);color:var(--red);border:1px solid var(--rb)}
+.bc{background:#3d2a00;color:var(--amber);border:1px solid #78450a}
+.br2{background:#1c1c40;color:var(--purple);border:1px solid #534ab7}
+.bad{background:#1c1c40;color:var(--purple);border:1px solid #534ab7}
+.ban{background:#0f1f3d;color:var(--accent);border:1px solid #1e4080}
+.bv{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.bact{background:var(--gd);color:var(--green);border:1px solid var(--gb)}
+.bin{background:var(--rd);color:var(--red);border:1px solid var(--rb)}
+/* Forms */
+.ff{margin-bottom:14px}
+.fl{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.fi{width:100%;padding:8px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px;transition:border-color .12s,box-shadow .12s}
+.fi:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.fi::placeholder{color:var(--text3)}.fi option{background:var(--bg3)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fh{font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+.req{color:var(--red);font-size:10px}
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;backdrop-filter:blur(3px)}
+.md{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:24px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;animation:su .18s ease}
+@keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.mt{font-size:15px;font-weight:600;letter-spacing:-.3px;margin-bottom:4px}
+.msub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:18px}
+.mf{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;border-top:1px solid var(--border);padding-top:14px}
+/* Alerts */
+.ferr{font-size:12px;padding:9px 12px;border-radius:var(--r);background:var(--rd);border:1px solid var(--rb);color:var(--red);margin-bottom:12px}
+.fok{font-size:12px;padding:9px 12px;border-radius:var(--r);background:var(--gd);border:1px solid var(--gb);color:var(--green);margin-bottom:12px}
+/* Login */
+.lw{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.lc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:32px 28px;width:400px;animation:su .25s ease}
+/* Tabs */
+.tabbar{display:flex;gap:4px;background:var(--bg3);border-radius:var(--r);padding:4px;margin-bottom:20px}
+.tabbtn{flex:1;padding:7px;border:none;border-radius:6px;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;background:transparent;color:var(--text2)}
+.tabbtn.on{background:var(--accent);color:#fff}
+/* Quick role chips */
+.rc{flex:1;padding:7px;border:1px solid var(--border2);border-radius:var(--r);background:transparent;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;text-align:center;font-family:var(--font);transition:all .12s}
+.rc:hover{background:var(--bg3);color:var(--text)}
+.rc.sel{background:rgba(79,142,247,.15);border-color:var(--accent);color:var(--accent)}
+/* Filters */
+.filters{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px}
+.filters select:focus,.filters input:focus{outline:none;border-color:var(--accent)}
+.fc{font-size:12px;color:var(--text3);margin-left:auto;font-family:var(--mono)}
+/* Pagination */
+.pg{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+.pbs{display:flex;gap:3px}
+.pb{padding:4px 9px;border:1px solid var(--border);border-radius:var(--r);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;font-family:var(--font)}
+.pb:hover{background:var(--bg3)}.pb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pi{font-size:12px;color:var(--text3);font-family:var(--mono)}
+/* Toast */
+#tc{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:7px}
+.toast{padding:10px 16px;border-radius:var(--r);font-size:13px;font-weight:500;animation:ti .18s ease;display:flex;align-items:center;gap:8px;max-width:320px;border:1px solid var(--border2);background:var(--bg4);color:var(--text)}
+.toast.ok{background:var(--gd);border-color:var(--gb);color:var(--green)}
+.toast.err{background:var(--rd);border-color:var(--rb);color:var(--red)}
+.toast.inf{background:#0f1f3d;border-color:#1e4080;color:var(--accent)}
+@keyframes ti{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+/* Misc */
+.empty{text-align:center;padding:44px 20px;color:var(--text3);font-size:13px}
+.spin{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:sp .65s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.lr{display:flex;align-items:center;justify-content:center;gap:12px;padding:40px;color:var(--text3);font-size:13px}
+.am{color:var(--green);font-weight:500;font-family:var(--mono);font-size:13px}
+.an{color:var(--red);font-weight:500;font-family:var(--mono);font-size:13px}
+/* AI */
+.ai-tabs{display:flex;gap:4px;background:var(--bg3);border-radius:var(--r);padding:4px;margin-bottom:18px}
+.ai-tab{flex:1;padding:7px;border:none;border-radius:6px;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;background:transparent;color:var(--text2)}
+.ai-tab.on{background:linear-gradient(135deg,#4f8ef7,#a78bfa);color:#fff}
+.chat-wrap{display:flex;flex-direction:column;height:450px}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r2) var(--r2) 0 0}
+.chat-bar{display:flex;gap:8px;padding:10px;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r2) var(--r2)}
+.chat-in{flex:1;padding:8px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--font);font-size:13px}
+.chat-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.msg{max-width:82%;padding:9px 13px;border-radius:var(--r2);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-radius:var(--r2) var(--r2) 4px var(--r2)}
+.msg.ai{background:var(--bg2);border:1px solid var(--border2);color:var(--text);align-self:flex-start;border-radius:var(--r2) var(--r2) var(--r2) 4px}
+.msg.typing{align-self:flex-start;background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.ibox{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px;line-height:1.8;font-size:13px;color:var(--text2);white-space:pre-wrap}
+.ai-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);border-radius:10px;font-size:11px;color:var(--purple);font-family:var(--mono);margin-bottom:14px}
+/* Cache cards */
+.cc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:9px}
+.cc:hover{border-color:var(--border2)}
+.cn{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--accent)}
+.cd{font-size:12px;color:var(--text3);margin-top:2px}
+.tp{background:var(--bg3);color:var(--text3);font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:10px}
+/* Responsive */
+@media(max-width:900px){.g2{grid-template-columns:1fr}.s2{grid-column:span 1}.fr{grid-template-columns:1fr}:root{--sw:190px}}
+@media(max-width:680px){.sidebar{display:none}.content{padding:14px}}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="tc"></div>
+
+<!-- ── LOGIN ───────────────────────────────────────────────────────────────── -->
+<div id="ls" class="lw">
+<div class="lc">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px">
+    <div class="logo-icon" style="width:40px;height:40px;border-radius:10px">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:22px;height:22px"><path d="M3 10h14M10 3v14"/></svg>
+    </div>
+    <div>
+      <div style="font-size:21px;font-weight:700;letter-spacing:-.4px">FinanceDash</div>
+      <div style="font-size:12px;color:var(--text2)">Spring Boot · MySQL · Redis · Razorpay · Claude AI</div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <button id="tab-in" class="tabbtn on" onclick="switchTab('in')">Sign in</button>
+    <button id="tab-up" class="tabbtn" onclick="switchTab('up')">Sign up</button>
+  </div>
+
+  <!-- sign in -->
+  <div id="form-in">
+    <div class="ff">
+      <label class="fl">Quick login</label>
+      <div style="display:flex;gap:7px">
+        <button class="rc sel" onclick="ql('admin','admin123',this)">Admin</button>
+        <button class="rc" onclick="ql('analyst','analyst123',this)">Analyst</button>
+        <button class="rc" onclick="ql('viewer','viewer123',this)">Viewer</button>
+      </div>
+    </div>
+    <div class="ff"><label class="fl">Username</label><input class="fi" id="lu" value="admin"></div>
+    <div class="ff"><label class="fl">Password</label><input class="fi" id="lp" type="password" value="admin123" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div id="lerr" class="ferr hidden"></div>
+    <button class="btn bp" style="width:100%;padding:10px;font-size:14px;justify-content:center" id="lbtn" onclick="doLogin()">Sign in</button>
+  </div>
+
+  <!-- sign up -->
+  <div id="form-up" class="hidden">
+    <div class="fr">
+      <div class="ff"><label class="fl">Username <span class="req">*</span></label><input class="fi" id="su-u" placeholder="min 3 chars" oninput="clrSuErr()"></div>
+      <div class="ff"><label class="fl">Email <span class="req">*</span></label><input class="fi" id="su-e" type="email" placeholder="you@example.com" oninput="clrSuErr()"></div>
+    </div>
+    <div class="fr">
+      <div class="ff"><label class="fl">Password <span class="req">*</span></label><input class="fi" id="su-p" type="password" placeholder="min 6 chars" oninput="clrSuErr()"></div>
+      <div class="ff"><label class="fl">Confirm <span class="req">*</span></label><input class="fi" id="su-p2" type="password" placeholder="repeat" onkeydown="if(event.key==='Enter')doSignup()"></div>
+    </div>
+    <div class="ff">
+      <label class="fl">Role <span class="req">*</span></label>
+      <select class="fi" id="su-r">
+        <option value="VIEWER">VIEWER — Read-only</option>
+        <option value="ANALYST">ANALYST — Read + Analytics</option>
+        <option value="ADMIN">ADMIN — Full access</option>
+      </select>
+    </div>
+    <div id="suerr" class="ferr hidden"></div>
+    <div id="suok" class="fok hidden"></div>
+    <button class="btn bp" style="width:100%;padding:10px;font-size:14px;justify-content:center" id="subtn" onclick="doSignup()">Create account</button>
+  </div>
+
+  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+    <label class="fl">API base URL</label>
+    <input class="fi" id="lurl" value="http://localhost:8080"
+      onblur="this.value=parseBase(this.value)"
+      oninput="document.getElementById('lurl-h').textContent=parseBase(this.value)">
+    <div class="fh" id="lurl-h">http://localhost:8080 · host:port only</div>
+  </div>
+</div>
+</div>
+
+<!-- ── APP ─────────────────────────────────────────────────────────────────── -->
+<div id="app" class="app hidden">
+  <div class="sidebar">
+    <div class="sb-brand">
+      <div class="logo-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:17px;height:17px"><path d="M3 10h14M10 3v14"/></svg></div>
+      <div><div class="logo-name">FinanceDash</div><div class="logo-ver">v1.0 · REST API</div></div>
+    </div>
+    <div class="sb-user">
+      <div class="av" id="sav">AD</div>
+      <div>
+        <div style="font-size:13px;font-weight:500" id="sun">admin</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono)" id="sur">ADMIN</div>
+      </div>
+    </div>
+    <div class="sb-nav">
+      <div class="ni active" data-p="dashboard" onclick="nav('dashboard')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5" height="5" rx="1"/><rect x="9.5" y="1.5" width="5" height="5" rx="1"/><rect x="1.5" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg>Dashboard</div>
+      <div class="ni" data-p="transactions" onclick="nav('transactions')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h7"/><circle cx="13" cy="12" r="2"/></svg>Transactions</div>
+      <div class="ni ao" data-p="analytics" onclick="nav('analytics')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13L5 8l3 2 3-5 3 2M2 13h12"/></svg>Analytics</div>
+      <div class="ni" data-p="payments" onclick="nav('payments')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="4" width="13" height="9" rx="1.5"/><path d="M1.5 7h13"/></svg>Payments</div>
+      <div class="ni" data-p="ai" onclick="nav('ai')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5V8l2 1"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg>AI Assistant<span class="nb ai-new">NEW</span></div>
+      <div class="ni adm" data-p="users" onclick="nav('users')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="2.5"/><path d="M1 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M11 3c1.3 0 2.5 1 2.5 2.5S12.2 8 11 8"/><path d="M15 14c0-1.8-1-3-2.5-3.5"/></svg>Users<span class="nb" id="uc">—</span></div>
+      <div class="ni adm" data-p="cache" onclick="nav('cache')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="4" rx="6" ry="2.5"/><path d="M2 4v3.5c0 1.4 2.7 2.5 6 2.5S14 8.9 14 7.5V4M2 7.5V11c0 1.4 2.7 2.5 6 2.5S14 12.4 14 11V7.5"/></svg>Cache mgmt</div>
+    </div>
+    <div class="sb-foot">
+      <button class="btn bsm" style="width:100%;justify-content:center" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="pt" id="ptt">Dashboard</div>
+      <div class="tright">
+        <div class="api-badge"><span class="dot" id="adot"></span><span id="aurl">localhost:8080</span></div>
+        <div id="tbtn"></div>
+      </div>
+    </div>
+    <div class="content" id="ct"><div class="lr"><div class="spin"></div>Loading...</div></div>
+  </div>
+</div>
+
+<!-- ── MODAL ───────────────────────────────────────────────────────────────── -->
+<div id="modal" class="mo hidden" onclick="if(event.target.id==='modal')closeMo()">
+  <div class="md" id="mdi"></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════ STATE ══ */
+var S={token:null,role:null,user:null,base:'http://localhost:8080',page:'dashboard',
+  txf:{type:'ALL',category:'',startDate:'',endDate:'',page:0,size:15},
+  charts:{},
+  chatHistory:[]
+};
+
+/* ══════════════════════════════════════════════════ URL HELPER ══ */
+function parseBase(raw){
+  var s=(raw||'').trim().replace(/\/+$/,'');
+  if(!s)return 'http://localhost:8080';
+  if(!/^https?:\/\//.test(s))s='http://'+s;
+  try{var u=new URL(s);return u.protocol+'//'+u.host;}
+  catch(e){return s.replace(/(https?:\/\/[^/]+)(\/.*)?$/,'$1');}
+}
+
+/* ══════════════════════════════════════════════════════════ API ══ */
+async function api(method,path,body){
+  var opts={method,headers:{'Content-Type':'application/json'}};
+  if(S.token)opts.headers['Authorization']='Bearer '+S.token;
+  if(body)opts.body=JSON.stringify(body);
+  var res;
+  try{res=await fetch(S.base+path,opts);}
+  catch(e){throw new Error('Cannot reach '+S.base+' — is backend running?');}
+  var d;
+  try{d=await res.json();}catch(e){d={success:false,message:'Invalid response ('+res.status+')'};}
+  if(res.status===401){
+    if(S.token){S.token=null;clearSess();showLogin();toast('Session expired','err');}
+    throw new Error(d.message||'Unauthorized');
+  }
+  if(!res.ok)throw new Error(d.message||'HTTP '+res.status);
+  return d;
+}
+
+/* ═══════════════════════════════════════════════════ SESSION ══ */
+function saveSess(){try{sessionStorage.setItem('fd',JSON.stringify({token:S.token,role:S.role,user:S.user,base:S.base}));}catch(e){}}
+function loadSess(){
+  try{
+    var d=JSON.parse(sessionStorage.getItem('fd')||'{}');
+    if(!d.token)return false;
+    S.token=d.token;S.role=d.role;S.user=d.user;S.base=parseBase(d.base||S.base);
+    return true;
+  }catch(e){return false;}
+}
+function clearSess(){try{sessionStorage.removeItem('fd');}catch(e){}}
+
+/* ══════════════════════════════════════════════════ HELPERS ══ */
+var fmt=n=>'\u20B9'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+var fmtD=d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'-';
+var ini=n=>(n||'U').slice(0,2).toUpperCase();
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function bdg(t){
+  var m={INCOME:'bi',EXPENSE:'be',SUCCESS:'bs2',FAILED:'bf',CREATED:'bc',REFUNDED:'br2',
+    ADMIN:'bad',ANALYST:'ban',VIEWER:'bv',ACTIVE:'bact',INACTIVE:'bin'};
+  return '<span class="badge '+(m[t]||'bv')+'">'+esc(t)+'</span>';
+}
+function toast(msg,type){
+  var c=document.getElementById('tc'),el=document.createElement('div');
+  el.className='toast '+(type||'ok');el.textContent=msg;c.appendChild(el);
+  setTimeout(()=>el.style.opacity='0',3000);setTimeout(()=>el.remove(),3400);
+}
+function loading(){document.getElementById('ct').innerHTML='<div class="lr"><div class="spin"></div>Loading...</div>';}
+function errV(msg){
+  document.getElementById('ct').innerHTML=
+    '<div class="empty"><div style="font-size:26px;opacity:.3;margin-bottom:10px">!</div>'+
+    '<div style="color:var(--red);font-size:14px;margin-bottom:6px">Request failed</div>'+
+    '<div style="font-family:var(--mono);font-size:12px">'+esc(msg)+'</div>'+
+    '<button class="btn bsm" style="margin-top:14px" onclick="nav(S.page)">Retry</button></div>';
+}
+var co={color:'#55627a',font:{size:11}},gc={color:'rgba(255,255,255,.04)'};
+function mkChart(id,type,data,opts){
+  var el=document.getElementById(id);if(!el)return null;
+  return new Chart(el,{type,data,options:Object.assign({responsive:true,maintainAspectRatio:false},opts)});
+}
+function destroyCharts(){Object.values(S.charts).forEach(c=>{try{c.destroy();}catch(e){}});S.charts={};}
+
+/* ════════════════════════════════════════════════ AUTH TABS ══ */
+function switchTab(t){
+  var isIn=t==='in';
+  document.getElementById('form-in').classList.toggle('hidden',!isIn);
+  document.getElementById('form-up').classList.toggle('hidden',isIn);
+  document.getElementById('tab-in').classList.toggle('on',isIn);
+  document.getElementById('tab-up').classList.toggle('on',!isIn);
+}
+function ql(u,p,btn){
+  document.querySelectorAll('.rc').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('lu').value=u;
+  document.getElementById('lp').value=p;
+}
+function clrSuErr(){
+  document.getElementById('suerr').classList.add('hidden');
+  document.getElementById('suok').classList.add('hidden');
+}
+
+function showLogin(){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('ls').classList.remove('hidden');
+  switchTab('in');
+}
+
+function enterApp(r){
+  document.getElementById('ls').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('sav').textContent=ini(r.username);
+  document.getElementById('sun').textContent=r.username;
+  document.getElementById('sur').textContent=r.role;
+  document.getElementById('aurl').textContent=S.base.replace(/https?:\/\//,'');
+  document.getElementById('adot').classList.remove('off');
+  rbac();
+  nav('dashboard');
+}
+
+function rbac(){
+  var isA=S.role==='ADMIN',isAn=isA||S.role==='ANALYST';
+  document.querySelectorAll('.adm').forEach(el=>el.classList.toggle('hidden',!isA));
+  document.querySelectorAll('.ao').forEach(el=>el.classList.toggle('hidden',!isAn));
+}
+
+/* ═══════════════════════════════════════════════════ LOGIN ══ */
+async function doLogin(){
+  var u=document.getElementById('lu').value.trim();
+  var p=document.getElementById('lp').value;
+  var errEl=document.getElementById('lerr');
+  var btn=document.getElementById('lbtn');
+  errEl.classList.add('hidden');
+  if(!u||!p){errEl.textContent='Enter username and password';errEl.classList.remove('hidden');return;}
+  S.base=parseBase(document.getElementById('lurl').value);
+  document.getElementById('lurl').value=S.base;
+  btn.disabled=true;btn.textContent='Signing in...';
+  try{
+    var d=await api('POST','/api/auth/login',{username:u,password:p});
+    var r=d.data;
+    S.token=r.token;S.role=r.role;S.user=r.username;
+    saveSess();
+    enterApp(r);
+    toast('Welcome, '+r.username+'!');
+  }catch(e){
+    document.getElementById('adot').classList.add('off');
+    errEl.textContent=e.message;errEl.classList.remove('hidden');
+  }finally{btn.disabled=false;btn.textContent='Sign in';}
+}
+
+/* ══════════════════════════════════════════════ SIGN UP ══ */
+async function doSignup(){
+  var u=document.getElementById('su-u').value.trim();
+  var e=document.getElementById('su-e').value.trim();
+  var p=document.getElementById('su-p').value;
+  var p2=document.getElementById('su-p2').value;
+  var r=document.getElementById('su-r').value;
+  var errEl=document.getElementById('suerr');
+  var okEl=document.getElementById('suok');
+  var btn=document.getElementById('subtn');
+  function showErr(m){errEl.textContent=m;errEl.classList.remove('hidden');okEl.classList.add('hidden');}
+  if(!u||u.length<3)return showErr('Username min 3 characters.');
+  if(u.length>50)return showErr('Username max 50 characters.');
+  if(!/^[a-zA-Z0-9_.\-]+$/.test(u))return showErr('Username: letters, numbers, _ . - only.');
+  if(!e||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return showErr('Valid email required.');
+  if(!p||p.length<6)return showErr('Password min 6 characters.');
+  if(p!==p2)return showErr('Passwords do not match.');
+  S.base=parseBase(document.getElementById('lurl').value);
+  document.getElementById('lurl').value=S.base;
+  btn.disabled=true;btn.textContent='Creating...';errEl.classList.add('hidden');
+  try{
+    var d=await api('POST','/api/auth/register',{username:u,email:e,password:p,role:r});
+    var rv=d.data;
+    okEl.textContent='Account created! Signing in...';okEl.classList.remove('hidden');
+    S.token=rv.token;S.role=rv.role;S.user=rv.username;saveSess();
+    setTimeout(()=>{enterApp(rv);toast('Welcome, '+rv.username+'!');},700);
+  }catch(e2){
+    showErr(e2.message||'Registration failed.');
+    btn.disabled=false;btn.textContent='Create account';
+  }
+}
+
+function logout(){
+  S.token=null;S.role=null;clearSess();destroyCharts();
+  showLogin();
+}
+
+/* ══════════════════════════════════════════════════ NAV ══ */
+function nav(page){
+  if(page==='analytics'&&S.role==='VIEWER'){toast('Requires ANALYST or ADMIN','err');return;}
+  if((page==='users'||page==='cache')&&S.role!=='ADMIN'){toast('Admin only','err');return;}
+  S.page=page;destroyCharts();
+  document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.p===page));
+  var titles={dashboard:'Dashboard',transactions:'Transactions',analytics:'Analytics',
+    payments:'Payments',ai:'AI Assistant',users:'Users',cache:'Cache management'};
+  document.getElementById('ptt').textContent=titles[page]||page;
+  var btn=document.getElementById('tbtn');btn.innerHTML='';
+  if(page==='transactions'&&S.role==='ADMIN')
+    btn.innerHTML='<button class="btn bp bsm" onclick="openTxMo()">+ New transaction</button>';
+  if(page==='payments')
+    btn.innerHTML='<button class="btn bp bsm" onclick="openPayMo()">+ Create payment</button>';
+  if(page==='users')
+    btn.innerHTML='<button class="btn bp bsm" onclick="openUserMo()">+ Add user</button>';
+  ({dashboard:rDash,transactions:rTx,analytics:rAn,payments:rPay,ai:rAi,users:rUsers,cache:rCache}[page]||rDash)();
+}
+
+/* ══════════════════════════════════════════ DASHBOARD ══ */
+async function rDash(){
+  loading();
+  try{
+    var reqs=[api('GET','/api/dashboard/summary')];
+    if(S.role!=='VIEWER')reqs.push(api('GET','/api/dashboard/trends'));
+    var [sum,trends]=await Promise.all(reqs);
+    var s=sum.data,recent=s.recentTransactions||[],canT=trends&&trends.data;
+    var html='<div class="metrics">';
+    html+='<div class="metric"><div class="mi" style="background:var(--gd)"><svg viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.8"><path d="M8 2v12M12 6l-4-4-4 4"/></svg></div><div class="ml">Income</div><div class="mv g">'+fmt(s.totalIncome)+'</div><div class="ms">All time</div></div>';
+    html+='<div class="metric"><div class="mi" style="background:var(--rd)"><svg viewBox="0 0 16 16" fill="none" stroke="var(--red)" stroke-width="1.8"><path d="M8 2v12M12 10l-4 4-4-4"/></svg></div><div class="ml">Expenses</div><div class="mv r">'+fmt(s.totalExpenses)+'</div><div class="ms">All time</div></div>';
+    html+='<div class="metric"><div class="mi" style="background:#0f1f3d"><svg viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1"/></svg></div><div class="ml">Net balance</div><div class="mv '+(s.netBalance>=0?'g':'r')+'">'+fmt(s.netBalance)+'</div></div>';
+    html+='<div class="metric"><div class="mi" style="background:#1c1c40"><svg viewBox="0 0 16 16" fill="none" stroke="var(--purple)" stroke-width="1.8"><path d="M2 4h12M2 8h9M2 12h6"/></svg></div><div class="ml">Categories</div><div class="mv a">'+((s.categoryTotals||[]).length)+'</div></div>';
+    html+='</div><div class="g2 mb20">';
+    if(canT)html+='<div class="card s2"><div class="ct">Monthly trend</div><div style="position:relative;height:190px"><canvas id="c-tr"></canvas></div></div>';
+    html+='<div class="card"><div class="ct">Expense breakdown</div><div style="position:relative;height:190px"><canvas id="c-cat"></canvas></div></div>';
+    html+='<div class="card"><div class="ct">Income vs expense</div><div style="position:relative;height:190px"><canvas id="c-spl"></canvas></div></div>';
+    html+='</div><div class="card"><div class="ct">Recent activity</div><div class="tw"><table><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>Amount</th><th>Notes</th><th>By</th></tr></thead><tbody>';
+    recent.forEach(t=>{
+      html+='<tr><td>'+fmtD(t.date)+'</td><td style="font-weight:500">'+esc(t.category)+'</td><td>'+bdg(t.type)+'</td><td class="'+(t.type==='INCOME'?'am':'an')+'">'+(t.type==='INCOME'?'+':'-')+fmt(t.amount)+'</td><td class="tm">'+esc(t.notes||'-')+'</td><td class="tm">'+esc(t.createdBy)+'</td></tr>';
+    });
+    if(!recent.length)html+='<tr><td colspan="6"><div class="empty">No transactions yet.</div></td></tr>';
+    html+='</tbody></table></div></div>';
+    document.getElementById('ct').innerHTML=html;
+    setTimeout(()=>{
+      if(canT&&document.getElementById('c-tr')){
+        var td=trends.data.trends||[];
+        S.charts.tr=mkChart('c-tr','line',{
+          labels:td.map(m=>m.monthLabel),
+          datasets:[
+            {label:'Income',data:td.map(m=>m.income),borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.08)',tension:.3,pointRadius:2,fill:true},
+            {label:'Expense',data:td.map(m=>m.expenses),borderColor:'#f87171',backgroundColor:'rgba(248,113,113,.05)',tension:.3,pointRadius:2,borderDash:[4,3],fill:true}
+          ]
+        },{plugins:{legend:{labels:{color:'#8892a4',font:{size:11}}}},scales:{x:{grid:gc,ticks:co},y:{grid:gc,ticks:{...co,callback:v=>'\u20B9'+Math.round(v/1000)+'k'}}}});
+      }
+      var cats=(s.categoryTotals||[]).filter(c=>c.type==='EXPENSE').slice(0,8);
+      var cl=['#4f8ef7','#34d399','#a78bfa','#fbbf24','#2dd4bf','#f87171','#fb923c','#e879f9'];
+      if(document.getElementById('c-cat')&&cats.length)
+        S.charts.cat=mkChart('c-cat','doughnut',{labels:cats.map(c=>c.category),datasets:[{data:cats.map(c=>c.total),backgroundColor:cl,borderWidth:0,hoverOffset:5}]},{plugins:{legend:{position:'right',labels:{color:'#8892a4',font:{size:11},padding:7,boxWidth:9}}},cutout:'64%'});
+      if(document.getElementById('c-spl'))
+        S.charts.spl=mkChart('c-spl','doughnut',{labels:['Income','Expense'],datasets:[{data:[s.totalIncome,s.totalExpenses],backgroundColor:['#34d399','#f87171'],borderWidth:0,hoverOffset:5}]},{plugins:{legend:{position:'right',labels:{color:'#8892a4',font:{size:11},padding:7,boxWidth:9}}},cutout:'60%'});
+    },50);
+  }catch(e){errV(e.message);}
+}
+
+/* ═══════════════════════════════════ TRANSACTIONS ══ */
+async function rTx(){
+  loading();var f=S.txf;
+  try{
+    var p=new URLSearchParams({page:f.page,size:f.size});
+    if(f.type!=='ALL')p.set('type',f.type);
+    if(f.category)p.set('category',f.category);
+    if(f.startDate)p.set('startDate',f.startDate);
+    if(f.endDate)p.set('endDate',f.endDate);
+    var d=await api('GET','/api/transactions?'+p);
+    var pg=d.data,rows=pg.content||[],cw=S.role==='ADMIN';
+    var html='<div class="filters">';
+    html+='<select onchange="S.txf.type=this.value;S.txf.page=0;rTx()">'+['ALL','INCOME','EXPENSE'].map(v=>`<option value="${v}" ${f.type===v?'selected':''}>${v}</option>`).join('')+'</select>';
+    html+='<input placeholder="Category..." value="'+esc(f.category)+'" style="width:160px" oninput="S.txf.category=this.value;S.txf.page=0;rTx()">';
+    html+='<input type="date" value="'+esc(f.startDate)+'" title="From" onchange="S.txf.startDate=this.value;S.txf.page=0;rTx()">';
+    html+='<input type="date" value="'+esc(f.endDate)+'" title="To" onchange="S.txf.endDate=this.value;S.txf.page=0;rTx()">';
+    if(f.type!=='ALL'||f.category||f.startDate||f.endDate)html+='<button class="btn bsm" onclick="clrTxF()">Clear</button>';
+    html+='<span class="fc">'+pg.totalElements+' records</span></div>';
+    html+='<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table><thead><tr><th>#</th><th>Date</th><th>Category</th><th>Type</th><th>Amount</th><th>Notes</th><th>By</th>'+(cw?'<th></th>':'')+'</tr></thead><tbody>';
+    rows.forEach(t=>{
+      html+='<tr><td class="tm">'+t.id+'</td><td>'+fmtD(t.date)+'</td><td style="font-weight:500">'+esc(t.category)+'</td><td>'+bdg(t.type)+'</td><td class="'+(t.type==='INCOME'?'am':'an')+'">'+(t.type==='INCOME'?'+':'-')+fmt(t.amount)+'</td><td class="tm" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.notes||'-')+'</td><td class="tm">'+esc(t.createdBy)+'</td>';
+      if(cw)html+='<td style="white-space:nowrap"><button class="btn bsm" onclick="openTxMo('+t.id+')">Edit</button> <button class="btn bsm bd" onclick="delTx('+t.id+')">Del</button></td>';
+      html+='</tr>';
+    });
+    if(!rows.length)html+='<tr><td colspan="'+(cw?8:7)+'"><div class="empty">No transactions found.</div></td></tr>';
+    html+='</tbody></table></div></div>';
+    html+='<div class="pg"><span class="pi">Page '+(pg.page+1)+' of '+Math.max(1,pg.totalPages)+' · '+pg.totalElements+' total</span><div class="pbs">';
+    for(var i=0;i<pg.totalPages;i++)html+='<button class="pb '+(i===pg.page?'on':'')+'" onclick="S.txf.page='+i+';rTx()">'+(i+1)+'</button>';
+    html+='</div></div>';
+    document.getElementById('ct').innerHTML=html;
+  }catch(e){errV(e.message);}
+}
+function clrTxF(){S.txf={type:'ALL',category:'',startDate:'',endDate:'',page:0,size:15};rTx();}
+async function delTx(id){
+  if(!confirm('Soft-delete #'+id+'?'))return;
+  try{await api('DELETE','/api/transactions/'+id);toast('Deleted');rTx();}catch(e){toast(e.message,'err');}
+}
+
+/* ══════════════════════════════════════ ANALYTICS ══ */
+async function rAn(){
+  loading();
+  try{
+    var [tr,ca]=await Promise.all([api('GET','/api/dashboard/trends'),api('GET','/api/dashboard/categories')]);
+    var td=tr.data.trends||[],cd=ca.data||[];
+    var ec=cd.filter(c=>c.type==='EXPENSE').sort((a,b)=>b.total-a.total).slice(0,10);
+    var ic=cd.filter(c=>c.type==='INCOME').sort((a,b)=>b.total-a.total);
+    var net=td.map(m=>m.net),lb=td.map(m=>m.monthLabel);
+    var html='<div class="card mb20 s2"><div class="ct">12-month trend</div><div style="position:relative;height:230px"><canvas id="c-tr2"></canvas></div></div>';
+    html+='<div class="g2 mb20">';
+    html+='<div class="card"><div class="ct">Expenses by category</div><div style="position:relative;height:'+(Math.max(180,ec.length*34+50))+'px">'+(ec.length?'<canvas id="c-ec"></canvas>':'<div class="empty">No data.</div>')+'</div></div>';
+    html+='<div class="card"><div class="ct">Income by category</div><div style="position:relative;height:'+(Math.max(180,ic.length*34+50))+'px">'+(ic.length?'<canvas id="c-ic"></canvas>':'<div class="empty">No data.</div>')+'</div></div>';
+    html+='</div><div class="card"><div class="ct">Monthly net balance</div><div style="position:relative;height:190px"><canvas id="c-net"></canvas></div></div>';
+    document.getElementById('ct').innerHTML=html;
+    setTimeout(()=>{
+      var inc=td.map(m=>m.income),exp=td.map(m=>m.expenses);
+      S.charts.tr2=mkChart('c-tr2','line',{labels:lb,datasets:[
+        {label:'Income',data:inc,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.06)',tension:.3,pointRadius:2,fill:true},
+        {label:'Expense',data:exp,borderColor:'#f87171',backgroundColor:'transparent',tension:.3,pointRadius:2,borderDash:[4,3]},
+        {label:'Net',data:net,borderColor:'#4f8ef7',backgroundColor:'transparent',tension:.3,pointRadius:2,borderDash:[2,2]}
+      ]},{plugins:{legend:{labels:{color:'#8892a4',font:{size:11}}}},scales:{x:{grid:gc,ticks:co},y:{grid:gc,ticks:{...co,callback:v=>'\u20B9'+Math.round(v/1000)+'k'}}}});
+      if(ec.length)S.charts.ec=mkChart('c-ec','bar',{labels:ec.map(c=>c.category),datasets:[{data:ec.map(c=>c.total),backgroundColor:'#f87171',borderRadius:3}]},{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{...co,callback:v=>'\u20B9'+Math.round(v/1000)+'k'}},y:{grid:{display:false},ticks:co}}});
+      if(ic.length)S.charts.ic=mkChart('c-ic','bar',{labels:ic.map(c=>c.category),datasets:[{data:ic.map(c=>c.total),backgroundColor:'#34d399',borderRadius:3}]},{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{...co,callback:v=>'\u20B9'+Math.round(v/1000)+'k'}},y:{grid:{display:false},ticks:co}}});
+      S.charts.net=mkChart('c-net','bar',{labels:lb,datasets:[{data:net,backgroundColor:net.map(v=>v>=0?'rgba(52,211,153,.7)':'rgba(248,113,113,.7)'),borderRadius:3}]},{plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:co},y:{grid:gc,ticks:{...co,callback:v=>'\u20B9'+Math.round(v/1000)+'k'}}}});
+    },50);
+  }catch(e){errV(e.message);}
+}
+
+/* ══════════════════════════════════════ PAYMENTS ══ */
+async function rPay(){
+  loading();
+  try{
+    var reqs=[S.role==='ADMIN'?api('GET','/api/payments?page=0&size=30'):api('GET','/api/payments/my?page=0&size=30')];
+    if(S.role==='ADMIN')reqs.push(api('GET','/api/payments/revenue'));
+    var [mine,rev]=await Promise.all(reqs);
+    var pays=mine.data.content||[],revenue=rev?rev.data.totalRevenue:null;
+    var html='';
+    if(S.role==='ADMIN'){
+      var ok=pays.filter(p=>p.status==='SUCCESS').length;
+      var pend=pays.filter(p=>p.status==='CREATED').length;
+      var fail=pays.filter(p=>p.status==='FAILED').length;
+      html+='<div class="metrics mb20">';
+      html+='<div class="metric"><div class="ml">Revenue</div><div class="mv g">'+(revenue!=null?fmt(revenue):'-')+'</div><div class="ms">SUCCESS only</div></div>';
+      html+='<div class="metric"><div class="ml">Successful</div><div class="mv g">'+ok+'</div></div>';
+      html+='<div class="metric"><div class="ml">Pending</div><div class="mv a">'+pend+'</div></div>';
+      html+='<div class="metric"><div class="ml">Failed</div><div class="mv r">'+fail+'</div></div>';
+      html+='</div>';
+    }
+    html+='<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table><thead><tr><th>Order ID</th><th>Payment ID</th><th>Description</th><th>Amount</th><th>Status</th><th>By</th><th>Date</th>'+(S.role==='ADMIN'?'<th></th>':'')+'</tr></thead><tbody>';
+    pays.forEach(p=>{
+      html+='<tr><td class="tm">'+esc(p.razorpayOrderId)+'</td><td class="tm">'+esc(p.razorpayPaymentId||'-')+'</td><td style="font-weight:500">'+esc(p.description||'-')+'</td><td style="font-family:var(--mono)">'+fmt(p.amount)+'</td><td>'+bdg(p.status)+'</td><td class="tm">'+esc(p.initiatedBy)+'</td><td>'+fmtD(p.createdAt)+'</td>';
+      if(S.role==='ADMIN')html+='<td>'+(p.status==='CREATED'?'<button class="btn bsm bs" onclick="openVerMo(\''+esc(p.razorpayOrderId)+'\')">Verify</button>':'-')+'</td>';
+      html+='</tr>';
+    });
+    if(!pays.length)html+='<tr><td colspan="'+(S.role==='ADMIN'?8:7)+'"><div class="empty">No payments. Click "+ Create payment" to test Razorpay flow.</div></td></tr>';
+    html+='</tbody></table></div></div>';
+    document.getElementById('ct').innerHTML=html;
+  }catch(e){errV(e.message);}
+}
+
+/* ══════════════════════════════════════ AI PAGE ══ */
+var aiTab='chat';
+function rAi(){
+  document.getElementById('ct').innerHTML=
+    '<div class="ai-pill">&#9889; Powered by Claude (Anthropic) · GET /api/ai/insights · POST /api/ai/chat · POST /api/ai/categorize</div>'+
+    '<div class="ai-tabs">'+
+      '<button class="ai-tab '+(aiTab==='chat'?'on':'')+'" onclick="setAiTab(\'chat\')">&#128172; Chat</button>'+
+      '<button class="ai-tab '+(aiTab==='insights'?'on':'')+'" onclick="setAiTab(\'insights\')">&#128200; Insights</button>'+
+      '<button class="ai-tab '+(aiTab==='categorize'?'on':'')+'" onclick="setAiTab(\'categorize\')">&#127991; Categorize</button>'+
+    '</div>'+
+    '<div id="ai-body"></div>';
+  renderAiTab();
+}
+function setAiTab(t){
+  aiTab=t;
+  document.querySelectorAll('.ai-tab').forEach((b,i)=>b.classList.toggle('on',['chat','insights','categorize'][i]===t));
+  renderAiTab();
+}
+function renderAiTab(){
+  if(aiTab==='chat')renderAiChat();
+  else if(aiTab==='insights')renderAiInsights();
+  else renderAiCategorize();
+}
+
+/* chat */
+function renderAiChat(){
+  var msgs=S.chatHistory.length===0
+    ?'<div class="msg ai">Hi! I have access to your live transaction data. Ask me anything:\n\n• What is my biggest expense category?\n• Am I spending more than I earn?\n• How can I improve my savings?</div>'
+    :S.chatHistory.map(m=>'<div class="msg '+m.role+'">'+esc(m.content)+'</div>').join('');
+  document.getElementById('ai-body').innerHTML=
+    '<div class="chat-wrap">'+
+      '<div class="chat-msgs" id="chat-msgs">'+msgs+'</div>'+
+      '<div class="chat-bar">'+
+        '<input class="chat-in" id="chat-in" placeholder="Ask about your finances..." onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();sendChat();}">'+
+        '<button class="btn bp bsm" onclick="sendChat()">Send</button>'+
+        '<button class="btn bsm" onclick="S.chatHistory=[];renderAiChat()" title="Clear">&#128465;</button>'+
+      '</div>'+
+    '</div>';
+  scrollChat();
+}
+async function sendChat(){
+  var inp=document.getElementById('chat-in');
+  var msg=(inp.value||'').trim();
+  if(!msg)return;
+  inp.value='';
+  S.chatHistory.push({role:'user',content:msg});
+  appendMsg('user',msg);
+  var typing=document.createElement('div');
+  typing.className='msg typing';typing.textContent='Thinking...';typing.id='typing';
+  document.getElementById('chat-msgs').appendChild(typing);scrollChat();
+  try{
+    var hist=S.chatHistory.slice(-10).slice(0,-1).map(h=>({role:h.role,content:h.content}));
+    var d=await api('POST','/api/ai/chat',{message:msg,history:hist});
+    var reply=d.data.reply;
+    S.chatHistory.push({role:'assistant',content:reply});
+    var el=document.getElementById('typing');if(el)el.remove();
+    appendMsg('ai',reply);
+  }catch(e){
+    var el=document.getElementById('typing');if(el)el.remove();
+    appendMsg('ai','Error: '+e.message);
+  }
+}
+function appendMsg(role,text){
+  var msgs=document.getElementById('chat-msgs');if(!msgs)return;
+  var el=document.createElement('div');el.className='msg '+role;el.textContent=text;
+  msgs.appendChild(el);scrollChat();
+}
+function scrollChat(){var m=document.getElementById('chat-msgs');if(m)m.scrollTop=m.scrollHeight;}
+
+/* insights */
+async function renderAiInsights(){
+  document.getElementById('ai-body').innerHTML='<div class="card"><div class="ct">Financial health analysis</div><div class="lr"><div class="spin"></div>Claude analyzing your data...</div></div>';
+  try{
+    var d=await api('GET','/api/ai/insights');
+    document.getElementById('ai-body').innerHTML=
+      '<div class="card">'+
+        '<div class="ct">Financial health analysis <span style="font-size:11px;color:var(--text3);font-weight:400">· Generated '+new Date().toLocaleDateString('en-IN')+'</span></div>'+
+        '<div class="ibox">'+esc(d.data.analysis)+'</div>'+
+        '<div style="margin-top:12px"><button class="btn bsm" onclick="renderAiInsights()">&#128260; Regenerate</button></div>'+
+      '</div>';
+  }catch(e){
+    document.getElementById('ai-body').innerHTML='<div class="empty">'+esc(e.message)+'<br><br><button class="btn bsm" onclick="renderAiInsights()">Retry</button></div>';
+  }
+}
+
+/* categorize */
+function renderAiCategorize(){
+  document.getElementById('ai-body').innerHTML=
+    '<div class="card mb20">'+
+      '<div class="ct">AI category suggestion</div>'+
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:14px">Describe a transaction — Claude suggests the right category. Also triggered via the &#129302; button when creating a transaction.</div>'+
+      '<div class="fr">'+
+        '<div class="ff"><label class="fl">Type</label><select class="fi" id="ct-type"><option value="EXPENSE">EXPENSE</option><option value="INCOME">INCOME</option></select></div>'+
+        '<div class="ff"><label class="fl">Description</label><input class="fi" id="ct-desc" placeholder="e.g. Amazon order, Uber ride, salary"></div>'+
+      '</div>'+
+      '<button class="btn bp bsm" onclick="doAiCategorize()">Suggest category</button>'+
+      '<div id="ct-res" style="margin-top:14px"></div>'+
+    '</div>'+
+    '<div class="card"><div class="ct">How it works</div>'+
+      '<div style="font-size:13px;color:var(--text2);line-height:1.9">'+
+        '1. Open New Transaction (+ button top right)<br>'+
+        '2. Fill Notes field with description<br>'+
+        '3. Click &#129302; AI button next to Category<br>'+
+        '4. Category auto-filled by Claude<br>'+
+        '5. Accept or overwrite with your own'+
+      '</div>'+
+    '</div>';
+}
+async function doAiCategorize(){
+  var desc=(document.getElementById('ct-desc').value||'').trim();
+  var type=document.getElementById('ct-type').value;
+  var res=document.getElementById('ct-res');
+  if(!desc){res.innerHTML='<span style="color:var(--red);font-size:13px">Enter a description first</span>';return;}
+  res.innerHTML='<div class="lr" style="padding:10px 0"><div class="spin"></div>Asking Claude...</div>';
+  try{
+    var d=await api('POST','/api/ai/categorize',{description:desc,type:type});
+    res.innerHTML='<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border2)">'+
+      '<span style="font-size:22px">&#129302;</span>'+
+      '<div><div style="font-size:11px;color:var(--text3)">Suggested</div><div style="font-size:17px;font-weight:600;color:var(--accent)">'+esc(d.data.category)+'</div></div>'+
+      '<button class="btn bsm" style="margin-left:auto" onclick="document.getElementById(\'ct-desc\').value=\'\';document.getElementById(\'ct-res\').innerHTML=\'\'">Clear</button>'+
+    '</div>';
+  }catch(e){res.innerHTML='<span style="color:var(--red);font-size:13px">'+esc(e.message)+'</span>';}
+}
+
+/* ══════════════════════════════════════════ USERS ══ */
+async function rUsers(){
+  loading();
+  try{
+    var d=await api('GET','/api/users?page=0&size=50');
+    var users=d.data.content||[];
+    document.getElementById('uc').textContent=users.length;
+    var html='<div class="card" style="padding:0;overflow:hidden"><div class="tw"><table><thead><tr><th>#</th><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>';
+    users.forEach(u=>{
+      var bg=u.role==='ADMIN'?'background:#534ab7':u.role==='ANALYST'?'background:#185fa5':'';
+      html+='<tr><td class="tm">'+u.id+'</td><td><div style="display:flex;align-items:center;gap:8px"><div class="av" style="width:26px;height:26px;font-size:10px;'+bg+'">'+ini(u.username)+'</div><span style="font-weight:500">'+esc(u.username)+'</span></div></td><td class="tm">'+esc(u.email)+'</td><td>'+bdg(u.role)+'</td><td>'+bdg(u.status)+'</td><td>'+fmtD(u.createdAt)+'</td>';
+      html+='<td style="white-space:nowrap"><button class="btn bsm" onclick="openEditUsr('+u.id+',\''+esc(u.username)+'\',\''+esc(u.email)+'\',\''+u.role+'\',\''+u.status+'\')">Edit</button> ';
+      html+='<button class="btn bsm '+(u.status==='ACTIVE'?'bd':'bs')+'" onclick="toggleSt('+u.id+',\''+u.status+'\')">'+(u.status==='ACTIVE'?'Deactivate':'Activate')+'</button> ';
+      html+='<button class="btn bsm bd" onclick="delUsr('+u.id+')">Del</button></td></tr>';
+    });
+    if(!users.length)html+='<tr><td colspan="7"><div class="empty">No users.</div></td></tr>';
+    html+='</tbody></table></div></div>';
+    document.getElementById('ct').innerHTML=html;
+  }catch(e){errV(e.message);}
+}
+async function toggleSt(id,cur){
+  try{await api('PUT','/api/users/'+id,{status:cur==='ACTIVE'?'INACTIVE':'ACTIVE'});toast('Status updated');rUsers();}catch(e){toast(e.message,'err');}
+}
+async function delUsr(id){
+  if(!confirm('Delete user #'+id+'?'))return;
+  try{await api('DELETE','/api/users/'+id);toast('Deleted');rUsers();}catch(e){toast(e.message,'err');}
+}
+
+/* ═══════════════════════════════════════════ CACHE ══ */
+function rCache(){
+  var caches=[
+    {n:'dashboard_summary',ttl:'10 min',d:'Income, expenses, net, recent transactions'},
+    {n:'dashboard_trends', ttl:'10 min',d:'12-month trend data'},
+    {n:'category_totals',  ttl:'10 min',d:'Per-category aggregations'},
+    {n:'transaction_by_id',ttl:'5 min', d:'Individual transaction records'},
+    {n:'user_by_id',       ttl:'30 min',d:'User profiles'},
+    {n:'payment_by_id',    ttl:'15 min',d:'Payment records'}
+  ];
+  var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">'+
+    '<div><div style="font-size:13px;color:var(--text2)">Redis cache management · Admin only</div>'+
+    '<div class="tm" style="margin-top:3px">App works without Redis — auto falls back to MySQL</div></div>'+
+    '<button class="btn bd" onclick="clrAll()">Clear all</button></div>';
+  caches.forEach(c=>{
+    html+='<div class="cc"><div><div class="cn">'+c.n+'</div><div class="cd">'+c.d+'</div></div>'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><span class="tp">TTL '+c.ttl+'</span><button class="btn bsm" onclick="evict(\''+c.n+'\')">Evict</button></div></div>';
+  });
+  document.getElementById('ct').innerHTML=html;
+}
+async function evict(n){try{var d=await api('DELETE','/api/cache/'+n);toast(d.message||'Evicted: '+n);}catch(e){toast(e.message,'err');}}
+async function clrAll(){
+  if(!confirm('Clear ALL caches?'))return;
+  try{var d=await api('DELETE','/api/cache/all');toast(d.message||'All cleared');}catch(e){toast(e.message,'err');}
+}
+
+/* ═══════════════════════════════════ MODALS ══ */
+function openMo(html){document.getElementById('mdi').innerHTML=html;document.getElementById('modal').classList.remove('hidden');}
+function closeMo(){document.getElementById('modal').classList.add('hidden');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMo();});
+
+/* tx modal */
+async function openTxMo(id){
+  var tx=null;
+  if(id){try{tx=(await api('GET','/api/transactions/'+id)).data;}catch(e){toast(e.message,'err');return;}}
+  var today=new Date().toISOString().slice(0,10);
+  openMo(
+    '<div class="mt">'+(id?'Edit':'New')+' transaction</div>'+
+    '<div class="msub">'+(id?'PUT /api/transactions/'+id:'POST /api/transactions')+'</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Amount (\u20B9) <span class="req">*</span></label><input class="fi" id="ta" type="number" step="0.01" min="0.01" value="'+(tx?tx.amount:'')+'" placeholder="0.00"></div>'+
+      '<div class="ff"><label class="fl">Type <span class="req">*</span></label><select class="fi" id="tt"><option value="INCOME" '+(tx&&tx.type==='INCOME'?'selected':'')+'>INCOME</option><option value="EXPENSE" '+(tx&&tx.type==='EXPENSE'?'selected':'')+'>EXPENSE</option></select></div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Category <span class="req">*</span> <button type="button" class="btn bsm" style="padding:2px 7px;font-size:10px;margin-left:4px" onclick="aiAutocat()" title="AI suggest">&#129302; AI</button></label><input class="fi" id="tc" value="'+(tx?esc(tx.category):'')+'" placeholder="e.g. Salary, Rent"></div>'+
+      '<div class="ff"><label class="fl">Date <span class="req">*</span></label><input class="fi" id="td" type="date" value="'+(tx?tx.date:today)+'"></div>'+
+    '</div>'+
+    '<div class="ff"><label class="fl">Notes</label><input class="fi" id="tn" value="'+(tx?esc(tx.notes||''):'')+'" placeholder="Optional description"></div>'+
+    '<div id="txerr" class="ferr hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="txbtn" onclick="saveTx('+(id||'null')+')">'+(id?'Update':'Create')+'</button></div>'
+  );
+}
+async function aiAutocat(){
+  var desc=(document.getElementById('tn').value||'').trim();
+  var type=document.getElementById('tt').value;
+  var catEl=document.getElementById('tc');
+  catEl.disabled=true;catEl.placeholder='AI thinking...';
+  try{var d=await api('POST','/api/ai/categorize',{description:desc||'general',type});catEl.value=d.data.category;}
+  catch(e){toast('AI failed: '+e.message,'err');}
+  finally{catEl.disabled=false;catEl.placeholder='e.g. Salary, Rent';}
+}
+async function saveTx(id){
+  var amt=parseFloat(document.getElementById('ta').value);
+  var type=document.getElementById('tt').value;
+  var cat=document.getElementById('tc').value.trim();
+  var date=document.getElementById('td').value;
+  var notes=document.getElementById('tn').value.trim();
+  var errEl=document.getElementById('txerr');
+  var btn=document.getElementById('txbtn');
+  errEl.classList.add('hidden');
+  if(!amt||amt<=0){errEl.textContent='Amount must be > 0';errEl.classList.remove('hidden');return;}
+  if(!cat){errEl.textContent='Category required';errEl.classList.remove('hidden');return;}
+  if(!date){errEl.textContent='Date required';errEl.classList.remove('hidden');return;}
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    var body={amount:amt,type,category:cat,date,notes:notes||null};
+    if(id&&id!=='null'){await api('PUT','/api/transactions/'+id,body);toast('Updated');}
+    else{await api('POST','/api/transactions',body);toast('Created');}
+    closeMo();rTx();
+  }catch(e){
+    errEl.textContent=e.message;errEl.classList.remove('hidden');
+    btn.disabled=false;btn.textContent=(id&&id!=='null')?'Update':'Create';
+  }
+}
+
+/* payment modal */
+function openPayMo(){
+  openMo(
+    '<div class="mt">Create payment</div>'+
+    '<div class="msub">POST /api/payments/create-order \u2192 Razorpay Checkout \u2192 POST /api/payments/verify</div>'+
+    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:16px">Test card: <span style="color:var(--accent)">4111 1111 1111 1111</span> · any future expiry · any CVV</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Amount (\u20B9) <span class="req">*</span></label><input class="fi" id="pa" type="number" step="0.01" min="1" placeholder="499.00"><div class="fh">Min \u20B91 \u00b7 converted to paise \u00d7100</div></div>'+
+      '<div class="ff"><label class="fl">Currency</label><select class="fi" id="pcur"><option>INR</option></select></div>'+
+    '</div>'+
+    '<div class="ff"><label class="fl">Description <span class="req">*</span></label><input class="fi" id="pd" placeholder="e.g. Monthly Premium Plan"></div>'+
+    '<div id="payerr" class="ferr hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="paybtn" onclick="startCheckout()">Pay with Razorpay</button></div>'
+  );
+}
+async function startCheckout(){
+  var amt=parseFloat(document.getElementById('pa').value);
+  var cur=document.getElementById('pcur').value;
+  var desc=document.getElementById('pd').value.trim();
+  var errEl=document.getElementById('payerr');
+  var btn=document.getElementById('paybtn');
+  errEl.classList.add('hidden');
+  if(!amt||amt<1){errEl.textContent='Amount must be \u2265 \u20B91';errEl.classList.remove('hidden');return;}
+  if(!desc){errEl.textContent='Description required';errEl.classList.remove('hidden');return;}
+  btn.disabled=true;btn.textContent='Creating order...';
+  try{
+    var d=await api('POST','/api/payments/create-order',{amount:amt,currency:cur,description:desc});
+    var order=d.data;
+    closeMo();
+    if(typeof Razorpay==='undefined'){toast('Order created: '+order.razorpayOrderId+' (Razorpay SDK unavailable)','inf');rPay();return;}
+    var rzp=new Razorpay({
+      key:order.keyId,amount:order.amountInPaise,currency:order.currency,
+      name:'FinanceDash',description:order.description,order_id:order.razorpayOrderId,
+      handler:verifyPay,prefill:{name:S.user},theme:{color:'#4f8ef7'},
+      modal:{ondismiss:()=>{toast('Cancelled — order remains pending','inf');rPay();}}
+    });
+    rzp.on('payment.failed',r=>{toast('Failed: '+(r.error&&r.error.description||'Unknown'),'err');rPay();});
+    rzp.open();
+  }catch(e){errEl.textContent=e.message;errEl.classList.remove('hidden');btn.disabled=false;btn.textContent='Pay with Razorpay';}
+}
+async function verifyPay(response){
+  try{
+    await api('POST','/api/payments/verify',{
+      razorpayOrderId:response.razorpay_order_id,
+      razorpayPaymentId:response.razorpay_payment_id,
+      razorpaySignature:response.razorpay_signature
+    });
+    toast('Payment verified!');
+  }catch(e){toast('Verify failed: '+e.message,'err');}
+  rPay();
+}
+function openVerMo(orderId){
+  openMo(
+    '<div class="mt">Verify payment</div>'+
+    '<div class="msub">POST /api/payments/verify \u00b7 HMAC-SHA256 check</div>'+
+    '<div class="ff"><label class="fl">Order ID</label><input class="fi" id="vo" value="'+esc(orderId)+'" readonly></div>'+
+    '<div class="ff"><label class="fl">Payment ID <span class="req">*</span></label><input class="fi" id="vp" placeholder="pay_xxxxxxxxxx"></div>'+
+    '<div class="ff"><label class="fl">Signature <span class="req">*</span></label><input class="fi" id="vs" placeholder="HMAC-SHA256 from Razorpay SDK"></div>'+
+    '<div id="verr" class="ferr hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="vbtn" onclick="doVerify()">Verify</button></div>'
+  );
+}
+async function doVerify(){
+  var oid=document.getElementById('vo').value;
+  var pid=document.getElementById('vp').value.trim();
+  var sig=document.getElementById('vs').value.trim();
+  var errEl=document.getElementById('verr');
+  var btn=document.getElementById('vbtn');
+  errEl.classList.add('hidden');
+  if(!pid||!sig){errEl.textContent='All fields required';errEl.classList.remove('hidden');return;}
+  btn.disabled=true;btn.textContent='Verifying...';
+  try{
+    await api('POST','/api/payments/verify',{razorpayOrderId:oid,razorpayPaymentId:pid,razorpaySignature:sig});
+    toast('Verified!');closeMo();rPay();
+  }catch(e){errEl.textContent=e.message;errEl.classList.remove('hidden');btn.disabled=false;btn.textContent='Verify';}
+}
+
+/* user modals */
+function openUserMo(){
+  openMo(
+    '<div class="mt">Add user</div><div class="msub">POST /api/auth/register</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Username <span class="req">*</span></label><input class="fi" id="uu" placeholder="min 3 chars"></div>'+
+      '<div class="ff"><label class="fl">Email <span class="req">*</span></label><input class="fi" id="ue" type="email" placeholder="user@example.com"></div>'+
+    '</div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Role <span class="req">*</span></label><select class="fi" id="ur"><option value="VIEWER">VIEWER</option><option value="ANALYST">ANALYST</option><option value="ADMIN">ADMIN</option></select></div>'+
+      '<div class="ff"><label class="fl">Password <span class="req">*</span></label><input class="fi" id="upw" type="password" placeholder="min 6 chars"></div>'+
+    '</div>'+
+    '<div id="usrerr" class="ferr hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="ubtn" onclick="saveUsr(null)">Create</button></div>'
+  );
+}
+function openEditUsr(id,username,email,role,status){
+  openMo(
+    '<div class="mt">Edit: '+esc(username)+'</div><div class="msub">PUT /api/users/'+id+' · null fields skipped</div>'+
+    '<div class="ff"><label class="fl">Email</label><input class="fi" id="ue" value="'+esc(email)+'"></div>'+
+    '<div class="fr">'+
+      '<div class="ff"><label class="fl">Role</label><select class="fi" id="ur"><option value="VIEWER" '+(role==='VIEWER'?'selected':'')+'>VIEWER</option><option value="ANALYST" '+(role==='ANALYST'?'selected':'')+'>ANALYST</option><option value="ADMIN" '+(role==='ADMIN'?'selected':'')+'>ADMIN</option></select></div>'+
+      '<div class="ff"><label class="fl">Status</label><select class="fi" id="ust"><option value="ACTIVE" '+(status==='ACTIVE'?'selected':'')+'>ACTIVE</option><option value="INACTIVE" '+(status==='INACTIVE'?'selected':'')+'>INACTIVE</option></select></div>'+
+    '</div>'+
+    '<div class="ff"><label class="fl">New password (blank = keep)</label><input class="fi" id="upw" type="password" placeholder="min 6 chars"></div>'+
+    '<div id="usrerr" class="ferr hidden"></div>'+
+    '<div class="mf"><button class="btn" onclick="closeMo()">Cancel</button><button class="btn bp" id="ubtn" onclick="saveUsr('+id+')">Update</button></div>'
+  );
+}
+async function saveUsr(id){
+  var errEl=document.getElementById('usrerr');
+  var btn=document.getElementById('ubtn');
+  errEl.classList.add('hidden');
+  btn.disabled=true;btn.textContent=id?'Saving...':'Creating...';
+  try{
+    if(id){
+      var body={};
+      var email=document.getElementById('ue').value.trim();
+      if(email)body.email=email;
+      body.role=document.getElementById('ur').value;
+      body.status=document.getElementById('ust').value;
+      var pw=document.getElementById('upw').value;
+      if(pw){if(pw.length<6){errEl.textContent='Password min 6 chars';errEl.classList.remove('hidden');btn.disabled=false;btn.textContent='Update';return;}body.password=pw;}
+      await api('PUT','/api/users/'+id,body);toast('User updated');
+    }else{
+      var u=document.getElementById('uu').value.trim();
+      var e2=document.getElementById('ue').value.trim();
+      var r=document.getElementById('ur').value;
+      var p=document.getElementById('upw').value;
+      if(!u||u.length<3){errEl.textContent='Username min 3 chars';errEl.classList.remove('hidden');btn.disabled=false;btn.textContent='Create';return;}
+      if(!e2||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e2)){errEl.textContent='Valid email required';errEl.classList.remove('hidden');btn.disabled=false;btn.textContent='Create';return;}
+      if(!p||p.length<6){errEl.textContent='Password min 6 chars';errEl.classList.remove('hidden');btn.disabled=false;btn.textContent='Create';return;}
+      await api('POST','/api/auth/register',{username:u,email:e2,role:r,password:p});toast('User created');
+    }
+    closeMo();rUsers();
+  }catch(e2){
+    errEl.textContent=e2.message;errEl.classList.remove('hidden');
+    btn.disabled=false;btn.textContent=id?'Update':'Create';
+  }
+}
+
+/* ═══════════════════════════════════════════ BOOT ══ */
+(function(){
+  var base=parseBase(S.base);
+  S.base=base;
+  document.getElementById('lurl').value=base;
+  document.getElementById('lurl-h').textContent=base+' \u00b7 host:port only';
+  if(loadSess()){
+    document.getElementById('lurl').value=S.base;
+    enterApp({username:S.user,role:S.role});
+  }
+})();
+</script>
+</body>
+</html>
