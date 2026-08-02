@@ -1,33 +1,53 @@
 # Finance Dashboard Backend
 
-A role-based finance data processing and access control API built with **Spring Boot 3**, **MySQL**, and **JWT authentication**.
+> Role-based Finance Data Processing and Access Control API — built with **Spring Boot 3**, **MySQL**, **Redis**, **Razorpay**, and **Google Gemini AI**.
+
+[![Java](https://img.shields.io/badge/Java-17-orange)](https://openjdk.org/projects/jdk/17/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2-green)](https://spring.io/projects/spring-boot)
+[![MySQL](https://img.shields.io/badge/MySQL-8-blue)](https://www.mysql.com/)
+[![Redis](https://img.shields.io/badge/Redis-Optional-red)](https://redis.io/)
 
 ---
 
 ## Table of Contents
-
+- [Overview](#overview)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
+- [Features](#features)
 - [Setup & Running](#setup--running)
 - [Role-Based Access Control](#role-based-access-control)
 - [API Reference](#api-reference)
-- [Design Decisions & Assumptions](#design-decisions--assumptions)
+- [AI Integration](#ai-integration)
+- [Razorpay Payment Flow](#razorpay-payment-flow)
+- [Redis Caching](#redis-caching)
+- [Design Decisions](#design-decisions)
 - [Running Tests](#running-tests)
+
+---
+
+## Overview
+
+A production-style backend REST API for managing financial transactions with strict role-based access control. Built to demonstrate real-world backend engineering — not just CRUD, but security, caching, third-party payments, AI integration, and testability.
+
+**Business purpose:** An internal finance tool where bookkeepers, analysts, and admins each have scoped access — mirroring the *segregation of duties* principle used in real accounting systems.
+
+**Frontend:** A standalone `index.html` (zero build step) with Chart.js dashboards, full Razorpay checkout flow, and AI-powered financial insights.
 
 ---
 
 ## Tech Stack
 
-| Layer      | Technology                        |
-| ---------- | --------------------------------- |
-| Language   | Java 17                           |
-| Framework  | Spring Boot 3.2                   |
-| Security   | Spring Security + JWT (JJWT 0.11) |
-| Database   | MySQL 8                           |
-| ORM        | Spring Data JPA / Hibernate       |
-| Validation | Jakarta Bean Validation           |
-| Build Tool | Maven                             |
-| Testing    | JUnit 5 + Mockito + AssertJ       |
+| Layer | Technology | Why |
+|---|---|---|
+| Language | Java 17 | LTS, text blocks, records |
+| Framework | Spring Boot 3.2 | Auto-configuration, production-ready |
+| Security | Spring Security 6 + JWT (JJWT 0.11) | Stateless auth, scales horizontally |
+| Database | MySQL 8 + Spring Data JPA / Hibernate 6 | ACID guarantees for financial data |
+| Caching | Redis + Spring Cache | Reduces DB load on aggregation queries |
+| Payments | Razorpay SDK 1.4.3 | HMAC-SHA256 tamper-proof verification |
+| AI | Google Gemini API (free tier) | Insights, chat, auto-categorize |
+| Testing | JUnit 5 + Mockito + AssertJ | Service isolation, no DB required |
+| Build | Maven 3.8+ | Dependency management |
 
 ---
 
@@ -36,37 +56,63 @@ A role-based finance data processing and access control API built with **Spring 
 ```
 src/main/java/com/finance/dashboard/
 ├── config/
-│   ├── ApplicationConfig.java      # UserDetailsService bean
-│   └── SecurityConfig.java         # Route-level access rules + JWT filter
+│   ├── ApplicationConfig.java       # UserDetailsService bean
+│   ├── CacheConstants.java          # Cache name constants registry
+│   ├── CorsConfig.java              # CorsConfigurationSource (not CorsFilter)
+│   ├── RazorpayConfig.java          # RazorpayClient singleton bean
+│   ├── RedisConfig.java             # CachingConfigurer + graceful fallback
+│   └── SecurityConfig.java          # Route-level RBAC + JWT filter chain
 ├── controller/
-│   ├── AuthController.java         # POST /api/auth/register|login
-│   ├── UserController.java         # /api/users/** (ADMIN only)
-│   ├── TransactionController.java  # /api/transactions/**
-│   └── DashboardController.java    # /api/dashboard/**
+│   ├── AiController.java            # /api/ai/**
+│   ├── AuthController.java          # /api/auth/**
+│   ├── CacheController.java         # /api/cache/** (Admin)
+│   ├── DashboardController.java     # /api/dashboard/**
+│   ├── PaymentController.java       # /api/payments/**
+│   ├── TransactionController.java   # /api/transactions/**
+│   └── UserController.java          # /api/users/** (Admin)
 ├── dto/
-│   ├── request/                    # Validated inbound payloads
-│   └── response/                   # Outbound shapes (never exposes passwords)
+│   ├── request/                     # Validated inbound payloads
+│   └── response/                    # Outbound shapes — never exposes passwords
 ├── exception/
-│   ├── GlobalExceptionHandler.java # Maps every exception to structured JSON
-│   ├── ResourceNotFoundException.java
-│   └── ConflictException.java
+│   ├── GlobalExceptionHandler.java  # Maps all exceptions to structured JSON
+│   ├── ConflictException.java
+│   ├── PaymentException.java
+│   └── ResourceNotFoundException.java
 ├── model/
-│   ├── User.java                   # Implements UserDetails
-│   ├── Transaction.java            # Supports soft-delete
-│   └── enums/                      # Role, TransactionType, UserStatus
+│   ├── Payment.java                 # Razorpay payment lifecycle entity
+│   ├── Transaction.java             # Soft-delete support
+│   ├── User.java                    # Implements UserDetails
+│   └── enums/                       # Role, TransactionType, UserStatus, PaymentStatus
 ├── repository/
-│   ├── UserRepository.java
-│   ├── TransactionRepository.java  # Custom JPQL for analytics
-│   └── TransactionSpecification.java # Composable JPA filters
+│   ├── TransactionRepository.java   # Custom JPQL aggregations
+│   ├── TransactionSpecification.java # Composable JPA Specification filters
+│   ├── PaymentRepository.java
+│   └── UserRepository.java
 ├── security/
-│   ├── JwtUtil.java                # Token generation and validation
-│   └── JwtAuthFilter.java          # OncePerRequestFilter
+│   ├── JwtAuthFilter.java           # OncePerRequestFilter — validates every request
+│   └── JwtUtil.java                 # Token generation and validation
 └── service/
+    ├── AiService.java               # Gemini API — insights, chat, categorize
     ├── AuthService.java
-    ├── UserService.java
-    ├── TransactionService.java
-    └── DashboardService.java       # All aggregation logic lives here
+    ├── DashboardService.java        # Aggregations + cache management
+    ├── PaymentService.java          # Order creation + HMAC verification
+    ├── TransactionService.java      # CRUD + cache eviction
+    └── UserService.java
 ```
+
+---
+
+## Features
+
+- **JWT Authentication** — stateless, 24h expiry, BCrypt password hashing (cost 10)
+- **3-tier RBAC** — VIEWER / ANALYST / ADMIN enforced at route AND method level
+- **Soft Delete** — transactions never physically removed, `deleted=true` flag preserves audit trail
+- **Dynamic Filtering** — JPA Specification composes 4 optional filters without combinatorial repository methods
+- **Dashboard Analytics** — income, expenses, net balance, category breakdowns, 12-month trends via JPQL aggregations
+- **Redis Caching** — `@Cacheable` on all reads, `@CacheEvict` on writes, graceful fallback to MySQL when Redis is down
+- **Razorpay Payments** — create-order → Razorpay checkout → HMAC-SHA256 verify, FAILED status saved before exception for audit
+- **AI Assistant** — financial health insights, multi-turn chat, transaction auto-categorization
+- **26 unit tests** — fully Mockito-isolated, no running database required
 
 ---
 
@@ -76,370 +122,202 @@ src/main/java/com/finance/dashboard/
 
 - Java 17+
 - Maven 3.8+
-- MySQL 8 running locally
+- MySQL 8
+- Redis (optional — app works without it)
 
-### 1. Create the database
+### 1. Clone and configure
+
+```bash
+git clone https://github.com/sahilshahare/finance-dashboard.git
+cd finance-dashboard
+cp src/main/resources/application.properties.example src/main/resources/application.properties
+```
+
+Edit `application.properties` — fill in:
+```properties
+spring.datasource.password=YOUR_MYSQL_PASSWORD
+razorpay.key.id=rzp_test_XXXXXXXX
+razorpay.key.secret=YOUR_SECRET
+gemini.api.key=YOUR_GEMINI_KEY    # Free at aistudio.google.com/apikey
+```
+
+### 2. Create database
 
 ```sql
 CREATE DATABASE finance_dashboard;
 ```
 
-### 2. Configure credentials
+Hibernate auto-creates all tables on first run (`ddl-auto=update`).
 
-Edit `src/main/resources/application.properties`:
-
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/finance_dashboard?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-spring.datasource.username=root
-spring.datasource.password=your_password
-```
-
-> Hibernate is set to `ddl-auto=update`, so all tables are created automatically on first run.
-
-### 3. Build and run
+### 3. Run
 
 ```bash
 mvn clean install
 mvn spring-boot:run
 ```
 
-The API is available at `http://localhost:8080`.
+API available at `http://localhost:8080`
 
-### 4. Seed an admin user
+### 4. Seed admin user
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "username": "admin",
-    "email": "admin@example.com",
-    "password": "admin123",
-    "role": "ADMIN"
-  }'
+  -d '{"username":"admin","email":"admin@example.com","password":"admin123","role":"ADMIN"}'
 ```
 
-Copy the `token` from the response and use it as `Authorization: Bearer <token>` on subsequent requests.
+### 5. Open frontend
+
+Open `index.html` in browser — no build step, no npm.
 
 ---
 
 ## Role-Based Access Control
 
-| Endpoint                         | VIEWER | ANALYST | ADMIN |
-| -------------------------------- | :----: | :-----: | :---: |
-| `POST /api/auth/register`        |   Y    |    Y    |   Y   |
-| `POST /api/auth/login`           |   Y    |    Y    |   Y   |
-| `GET  /api/transactions`         |   Y    |    Y    |   Y   |
-| `GET  /api/transactions/{id}`    |   Y    |    Y    |   Y   |
-| `POST /api/transactions`         |   N    |    N    |   Y   |
-| `PUT  /api/transactions/{id}`    |   N    |    N    |   Y   |
-| `DELETE /api/transactions/{id}`  |   N    |    N    |   Y   |
-| `GET  /api/dashboard/summary`    |   Y    |    Y    |   Y   |
-| `GET  /api/dashboard/trends`     |   N    |    Y    |   Y   |
-| `GET  /api/dashboard/categories` |   N    |    Y    |   Y   |
-| `GET  /api/users`                |   N    |    N    |   Y   |
-| `GET  /api/users/{id}`           |   N    |    N    |   Y   |
-| `PUT  /api/users/{id}`           |   N    |    N    |   Y   |
-| `DELETE /api/users/{id}`         |   N    |    N    |   Y   |
+| Endpoint | VIEWER | ANALYST | ADMIN |
+|---|:---:|:---:|:---:|
+| `POST /api/auth/register|login` | Y | Y | Y |
+| `GET /api/transactions/**` | Y | Y | Y |
+| `POST|PUT|DELETE /api/transactions/**` | N | N | Y |
+| `GET /api/dashboard/summary` | Y | Y | Y |
+| `GET /api/dashboard/trends|categories` | N | Y | Y |
+| `GET /api/payments/my` | Y | Y | Y |
+| `POST /api/payments/create-order|verify` | Y | Y | Y |
+| `GET /api/payments` (all users) | N | N | Y |
+| `GET /api/payments/revenue` | N | N | Y |
+| `GET|POST /api/ai/**` | Y | Y | Y |
+| `/api/users/**` | N | N | Y |
+| `/api/cache/**` | N | N | Y |
 
 ---
 
 ## API Reference
 
-All successful responses follow this envelope:
+All responses use a uniform envelope:
 
+**Success:**
 ```json
-{
-  "success": true,
-  "message": "Success",
-  "data": { ... }
-}
+{ "success": true, "message": "Success", "data": { ... } }
 ```
-
-All error responses:
-
+**Error:**
 ```json
-{
-  "success": false,
-  "message": "Human-readable error description",
-  "data": null
-}
+{ "success": false, "message": "Human-readable error description", "data": null }
 ```
-
----
 
 ### Auth
 
-#### `POST /api/auth/register`
-
-Creates a new user. Returns a JWT token immediately.
-
-**Request body:**
-
-```json
-{
-  "username": "alice",
-  "email": "alice@example.com",
-  "password": "pass1234",
-  "role": "ANALYST"
-}
-```
-
-> `role` accepts: `VIEWER`, `ANALYST`, `ADMIN`
-
-**Response `201`:**
-
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "data": {
-    "token": "eyJhbGci...",
-    "tokenType": "Bearer",
-    "userId": 2,
-    "username": "alice",
-    "role": "ANALYST"
-  }
-}
-```
-
----
-
-#### `POST /api/auth/login`
-
-**Request body:**
-
-```json
-{ "username": "alice", "password": "pass1234" }
-```
-
-**Response `200`:** Same shape as register.
-
-**Error `401`** — wrong credentials:
-
-```json
-{ "success": false, "message": "Invalid username or password" }
-```
-
----
+| Method | Endpoint | Body |
+|---|---|---|
+| POST | `/api/auth/register` | `{username, email, password, role}` |
+| POST | `/api/auth/login` | `{username, password}` |
 
 ### Transactions
 
-All transaction endpoints require `Authorization: Bearer <token>`.
-
-#### `GET /api/transactions`
-
-Paginated list. All query params are optional.
-
-| Param       | Type   | Example               |
-| ----------- | ------ | --------------------- |
-| `type`      | enum   | `INCOME` or `EXPENSE` |
-| `category`  | string | `Salary`              |
-| `startDate` | date   | `2025-01-01`          |
-| `endDate`   | date   | `2025-03-31`          |
-| `page`      | int    | `0` (default)         |
-| `size`      | int    | `20` (default)        |
-
-**Response `200`:**
-
-```json
-{
-  "success": true,
-  "message": "Success",
-  "data": {
-    "content": [
-      {
-        "id": 1,
-        "amount": 5000.0,
-        "type": "INCOME",
-        "category": "Salary",
-        "date": "2025-01-01",
-        "notes": "January salary",
-        "createdBy": "admin",
-        "createdAt": "2025-01-01T10:00:00",
-        "updatedAt": "2025-01-01T10:00:00"
-      }
-    ],
-    "page": 0,
-    "size": 20,
-    "totalElements": 1,
-    "totalPages": 1,
-    "last": true
-  }
-}
-```
-
----
-
-#### `GET /api/transactions/{id}`
-
-**Response `200`:** Single transaction object.
-**Error `404`:** `{ "success": false, "message": "Transaction not found with id: 99" }`
-
----
-
-#### `POST /api/transactions` _(ADMIN only)_
-
-**Request body:**
-
-```json
-{
-  "amount": 1200.5,
-  "type": "EXPENSE",
-  "category": "Rent",
-  "date": "2025-02-01",
-  "notes": "February rent payment"
-}
-```
-
-**Response `201`:** The created transaction object.
-
----
-
-#### `PUT /api/transactions/{id}` _(ADMIN only)_
-
-All fields are optional — only provided fields are updated.
-
-```json
-{ "category": "Office Rent", "amount": 1300.0 }
-```
-
-**Response `200`:** Updated transaction object.
-
----
-
-#### `DELETE /api/transactions/{id}` _(ADMIN only)_
-
-Performs a **soft delete** — the record is flagged as deleted but remains in the database for audit purposes.
-
-**Response `200`:**
-
-```json
-{ "success": true, "message": "Transaction deleted (soft)", "data": null }
-```
-
----
+| Method | Endpoint | Notes |
+|---|---|---|
+| GET | `/api/transactions` | Params: `type, category, startDate, endDate, page, size` |
+| GET | `/api/transactions/{id}` | Cached in Redis — 5 min TTL |
+| POST | `/api/transactions` | ADMIN only — evicts dashboard cache |
+| PUT | `/api/transactions/{id}` | ADMIN only — partial update, null fields skipped |
+| DELETE | `/api/transactions/{id}` | ADMIN only — soft delete |
 
 ### Dashboard
 
-#### `GET /api/dashboard/summary` _(All roles)_
+| Method | Endpoint | Auth |
+|---|---|---|
+| GET | `/api/dashboard/summary` | All roles |
+| GET | `/api/dashboard/trends` | ANALYST, ADMIN |
+| GET | `/api/dashboard/categories` | ANALYST, ADMIN |
 
-```json
-{
-  "data": {
-    "totalIncome": 15000.00,
-    "totalExpenses": 8500.00,
-    "netBalance": 6500.00,
-    "categoryTotals": [
-      { "category": "Rent",   "type": "EXPENSE", "total": 3600.00 },
-      { "category": "Salary", "type": "INCOME",  "total": 15000.00 }
-    ],
-    "recentTransactions": [ ... ]
-  }
-}
-```
+### Payments
 
----
-
-#### `GET /api/dashboard/trends` _(ANALYST, ADMIN)_
-
-Monthly income vs expense for the past 12 months.
-
-```json
-{
-  "data": {
-    "trends": [
-      {
-        "year": 2025,
-        "month": 1,
-        "monthLabel": "Jan 2025",
-        "income": 5000.0,
-        "expenses": 2800.0,
-        "net": 2200.0
-      }
-    ]
-  }
-}
-```
+| Method | Endpoint | Notes |
+|---|---|---|
+| POST | `/api/payments/create-order` | Returns `orderId + keyId` for Razorpay SDK |
+| POST | `/api/payments/verify` | HMAC-SHA256 signature verification |
+| GET | `/api/payments/my` | Paginated own payment history |
+| GET | `/api/payments` | ADMIN — all payments |
+| GET | `/api/payments/revenue` | ADMIN — sum of SUCCESS payments |
 
 ---
 
-#### `GET /api/dashboard/categories` _(ANALYST, ADMIN)_
+## AI Integration
 
-Category totals broken out by type — suitable for pie and bar charts.
+Three endpoints powered by Google Gemini API (free tier). Get key at: https://aistudio.google.com/apikey
 
-```json
-{
-  "data": [
-    { "category": "Groceries", "type": "EXPENSE", "total": 450.0 },
-    { "category": "Salary", "type": "INCOME", "total": 5000.0 }
-  ]
-}
 ```
+GET  /api/ai/insights       # Financial health analysis from live DB data
+POST /api/ai/chat           # Multi-turn Q&A with transaction context injected
+POST /api/ai/categorize     # Suggest category from transaction description
+```
+
+**Chat:**
+```json
+{ "message": "What is my biggest expense?", "history": [] }
+```
+
+**Categorize:**
+```json
+{ "description": "Amazon groceries", "type": "EXPENSE" }
+```
+
+App starts and runs fully without AI key — endpoints return a helpful message instead of crashing (`@Value("${gemini.api.key:}")` default empty string).
 
 ---
 
-### Users _(ADMIN only)_
+## Razorpay Payment Flow
 
-#### `GET /api/users?page=0&size=20`
-
-Paginated list of all users.
-
-#### `GET /api/users/{id}`
-
-Single user by ID.
-
-#### `PUT /api/users/{id}`
-
-Update any combination of `email`, `role`, `status`, or `password`. All fields are optional.
-
-```json
-{ "role": "ANALYST", "status": "INACTIVE" }
+```
+Frontend              Backend                 Razorpay
+   |                     |                       |
+   |-- POST /create-order->|                       |
+   |                     |-- orders.create() ----->|
+   |                     |<---------- orderId -----|
+   |<-- {orderId, keyId} -|                       |
+   |                     |                       |
+   |-- Razorpay.open() --------------------------------->|
+   |<-- {paymentId, signature} -------------------------|
+   |                     |                       |
+   |-- POST /verify ----->|                       |
+   |                     |-- HMAC-SHA256 check   |
+   |                     |-- save SUCCESS/FAILED |
+   |<-- {status: SUCCESS}-|                       |
 ```
 
-#### `DELETE /api/users/{id}`
-
-Hard-deletes the user record.
+**Critical detail:** `paymentRepository.save(FAILED)` is called **before** throwing `PaymentException` on invalid signature — ensures failed payments are persisted for audit trail even if the exception propagates up.
 
 ---
 
-## Design Decisions & Assumptions
+## Redis Caching
 
-### Soft Delete for Transactions
+| Cache | TTL | Evicted when |
+|---|---|---|
+| `dashboard_summary` | 10 min | Any transaction write |
+| `dashboard_trends` | 10 min | Any transaction write |
+| `category_totals` | 10 min | Any transaction write |
+| `transaction_by_id` | 5 min | Transaction updated or deleted |
+| `user_by_id` | 30 min | User updated or deleted |
+| `payment_by_id` | 15 min | Payment verified |
 
-Transactions are never physically removed. Setting `deleted = true` hides a record from all queries while preserving it for auditing. This is a common requirement in financial systems where data integrity and traceability matter.
+**Graceful fallback:** `RedisConfig` implements `CachingConfigurer` and overrides `errorHandler()`. Redis failures are logged as WARN and swallowed — app falls back to MySQL transparently. A standalone `@Bean CacheErrorHandler` is silently ignored by Spring and does NOT work.
 
-### Uniform API Response Envelope
+---
 
-Every endpoint — success or error — returns the same `{ success, message, data }` shape. This simplifies frontend error handling, as consumers always know the exact response structure regardless of HTTP status code.
+## Design Decisions
 
-### JPA Specification for Filtering
+**Soft delete** — Financial records must never be permanently destroyed. `deleted=true` preserves data for audit trails while hiding it from all normal queries.
 
-Rather than writing a separate repository method for every filter combination, a `Specification` is used to compose predicates dynamically. This keeps the repository clean and scales to more filter options without code duplication.
+**BigDecimal for money** — `double`/`float` cannot represent decimal fractions exactly (`0.1 + 0.2 = 0.30000000000000004`). `BigDecimal` stores exact values — non-negotiable for financial calculations.
 
-### Role Enforcement at Two Layers
+**JPA Specification** — 4 optional transaction filters would require 16 repository methods if written exhaustively. One `Specification` composes predicates dynamically — cleaner and more scalable.
 
-- **Route level** — `SecurityConfig` blocks requests by HTTP method and path before they reach a controller.
-- **Method level** — `@EnableMethodSecurity` is enabled, making it trivial to add `@PreAuthorize` guards on individual service methods if finer-grained control is needed later.
+**Two-layer RBAC** — Route-level rules in `SecurityConfig` block by HTTP method and path. `@EnableMethodSecurity` allows `@PreAuthorize` for fine-grained method-level control. Defense in depth.
 
-### Partial Updates (PUT behaves like PATCH)
+**CorsConfigurationSource not CorsFilter** — In Spring Boot 3 / Spring Security 6, a bare `CorsFilter @Bean` registers at order 0 (after Security at -100). OPTIONS preflight requests get 401/403 before CORS headers are set. `CorsConfigurationSource` integrates inside the Security filter chain and handles preflight correctly.
 
-`UpdateTransactionRequest` and `UpdateUserRequest` treat all fields as optional. Only non-null fields are applied. This avoids requiring the client to resend unchanged data and keeps API usage ergonomic.
+**PUT behaves like PATCH** — All update DTOs treat every field as optional. Only non-null fields are applied — clients don't resend unchanged data.
 
-### BigDecimal for All Monetary Values
-
-`double` and `float` cannot represent decimal fractions precisely. All monetary amounts use `BigDecimal` with `precision=15, scale=2` to avoid floating-point rounding errors.
-
-### Password Security
-
-Passwords are hashed with BCrypt (cost factor 10 by default). The raw password is never stored or returned in any response DTO.
-
-### JWT Expiry
-
-Tokens expire after 24 hours (`jwt.expiration=86400000` ms). There is no refresh token in this implementation — adding one would be the natural next step for production use.
-
-### Register Endpoint is Public
-
-To simplify seeding and demo usage, `/api/auth/register` is left open. In a real system this would be locked to ADMIN only, with a separate admin-invite or onboarding flow for other roles.
+**No Lombok** — Annotation processor was unreliable on the Windows development environment. All classes use explicit builders, getters, and setters for full control and zero hidden magic.
 
 ---
 
@@ -449,10 +327,20 @@ To simplify seeding and demo usage, `/api/auth/register` is left open. In a real
 mvn test
 ```
 
-The test suite covers:
+**26 tests — all pass without a running database or Redis.**
 
-- `AuthServiceTest` — registration (happy path, duplicate username, duplicate email), login (success, bad credentials)
-- `TransactionServiceTest` — list, get by ID (found / not found), create, partial update, soft-delete (success / not found)
-- `DashboardServiceTest` — net balance calculation, negative balance, recent transactions included, monthly trend merging, empty trend list
+| Test Class | Coverage |
+|---|---|
+| `AuthServiceTest` | register success, duplicate username, duplicate email, login success, wrong password |
+| `TransactionServiceTest` | list, get by id (found/not found), create, partial update, soft-delete success/not-found |
+| `DashboardServiceTest` | net balance, negative balance, recent transactions, monthly trend merging, empty trends |
+| `PaymentServiceTest` | user not found, amount to paise, order not found, already verified, invalid signature (FAILED saved before throw), get by id, revenue sum, revenue zero |
 
-All tests use **Mockito** to isolate the service layer from the database, so no running MySQL instance is required to execute them.
+---
+
+## Author
+
+**Sahil Shahare**
+B.Tech Computer Science — G. H. Raisoni College of Engineering, Nagpur (2021–2025)
+
+[GitHub](https://github.com/sahilshahare380) · [LinkedIn](https://linkedin.com/in/sahilshahare) · [Email](mailto:sahilshahare380@gmail.com)
