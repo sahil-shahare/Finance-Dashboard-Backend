@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: finance-dashboard
+    runtime: java
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/finance-dashboard-1.0.0.jar
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
