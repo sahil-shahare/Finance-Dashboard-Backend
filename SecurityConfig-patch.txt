@@ -1,4 +1,0 @@
-// ADD this inside securityFilterChain(), after the payments block:
-
-// ── AI endpoints (all authenticated users) ────────────────────────────────
-.requestMatchers("/api/ai/**").authenticated()
